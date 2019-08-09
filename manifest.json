@@ -4,9 +4,9 @@
   "author": "Jejo.digital",
   "description": "Copy ASIN to clipboard from Amazon search result pages.",
   "manifest_version": 2,
-  "icons": { "16": "jejo16.png",
-    "48": "jejo48.png",
-   "128": "jejo128.png" },
+  "icons": { "16": "icon16.png",
+    "48": "icon48.png",
+   "128": "icon128.png" },
   "content_scripts": [
     {
       "matches": [
