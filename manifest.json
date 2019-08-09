@@ -1,0 +1,34 @@
+{
+  "name": "Amazon Copy ASIN",
+  "version": "0.2",
+  "author": "Jejo.digital",
+  "description": "Copy ASIN to clipboard from Amazon search result pages.",
+  "manifest_version": 2,
+  "icons": { "16": "jejo16.png",
+    "48": "jejo48.png",
+   "128": "jejo128.png" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.amazon.com/s?*",
+        "https://www.amazon.co.uk/s?*",
+        "https://www.amazon.ca/s?*",
+        "https://www.amazon.com.mx/s?*",
+        "https://www.amazon.com.br/s?*",
+        "https://www.amazon.de/s?*",
+        "https://www.amazon.fr/s?*",
+        "https://www.amazon.it/s?*",
+        "https://www.amazon.es/s?*",
+        "https://www.amazon.co.jp/s?*",
+        "https://www.amazon.cn/s?*",
+        "https://www.amazon.in/s?*",
+        "https://www.amazon.com.au/s?*",
+        "https://www.amazon.ae/s?*"
+      ],
+      "js": [ "content.js" ],
+      "run_at": "document_end"
+    }
+  ],
+
+  "web_accessible_resources": [ "copy.svg", "success.svg" ]
+}
