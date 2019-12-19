@@ -3,20 +3,26 @@ const l = console.log;
 
 const UNIQUE_STRING = 'd9735ea58f704800b5c9ae4fcc046b19';
 const PRODUCT_BLOCK_SELECTOR = 'div[data-asin]';
+const SUCCESS_SIGNAL_TIME = 0.5; // seconds
 
 const copyImageURL = chrome.runtime.getURL('copy.svg');
 const successImageURL = chrome.runtime.getURL('success.svg');
 
-//position: relative; margin-left: 3px; cursor: pointer;top:-10px;left:120px
+
 // insert icons
-var host = window.location.host;
-if(host == 'www.amazon.com'){
-  var style="position: absolute; margin-left: 3px; cursor: pointer;"
-}else{
-  var style="position: relative; margin-left: 10px; cursor: pointer;top:-20px;left:120px";
-}
-document.querySelectorAll(`${PRODUCT_BLOCK_SELECTOR} a > span.a-size-base`).forEach(function(el) {
-  el.parentElement.parentElement.insertAdjacentHTML('afterEnd',`<img src="${copyImageURL}" width="25" height="25" title="Copy ASIN" style="${style}" class="${UNIQUE_STRING}" />`);
+
+const imageStyle = 'cursor: pointer; ' + (location.host === 'www.amazon.ae' ? 'position: relative; top: -20px; left: 120px;' :
+                                                                              'position: absolute; margin-left: 3px;');
+const imageHTML = `<img src="${copyImageURL}" width="25" height="25" title="Copy ASIN" style="${imageStyle}" class="${UNIQUE_STRING}" />`;
+
+// search results
+document.querySelectorAll(`.s-result-list ${PRODUCT_BLOCK_SELECTOR} a > span.a-size-base`).forEach(function(el) {
+  el.parentElement.parentElement.insertAdjacentHTML('afterEnd', imageHTML);
+});
+
+// 'Sponsored products related to this item' & '4 stars and above' blocks
+document.querySelectorAll(`li.a-carousel-card ${PRODUCT_BLOCK_SELECTOR}[data-p13n-asin-metadata] a.a-link-normal + div.a-row`).forEach(function(el) {
+  el.insertAdjacentHTML('beforeEnd', imageHTML);
 });
 
 
@@ -41,6 +47,6 @@ document.addEventListener('click', function(event) {
     img.src = successImageURL;
     setTimeout(function() {
       img.src = copyImageURL;
-    }, 0.5 * 1000);
-  })
+    }, SUCCESS_SIGNAL_TIME * 1000);
+  });
 });

@@ -1,29 +1,61 @@
 {
   "name": "Amazon Copy ASIN",
-  "version": "0.2",
+  "version": "0.3",
   "author": "Jejo.digital",
-  "description": "Copy ASIN to clipboard from Amazon search result pages.",
+  "description": "Copy ASIN to clipboard from Amazon search result & product pages.",
   "manifest_version": 2,
-  "icons": { "16": "icon16.png",
+
+  "icons": {
+    "16": "icon16.png",
     "48": "icon48.png",
-   "128": "icon128.png" },
+    "128": "icon128.png"
+  },
+
   "content_scripts": [
     {
       "matches": [
         "https://www.amazon.com/s?*",
+        "https://www.amazon.com/*/dp/*",
+
         "https://www.amazon.co.uk/s?*",
+        "https://www.amazon.co.uk/*/dp/*",
+
         "https://www.amazon.ca/s?*",
+        "https://www.amazon.ca/*/dp/*",
+
         "https://www.amazon.com.mx/s?*",
+        "https://www.amazon.com.mx/*/dp/*",
+
         "https://www.amazon.com.br/s?*",
+        "https://www.amazon.com.br/*/dp/*",
+
         "https://www.amazon.de/s?*",
+        "https://www.amazon.de/*/dp/*",
+
         "https://www.amazon.fr/s?*",
+        "https://www.amazon.fr/*/dp/*",
+
         "https://www.amazon.it/s?*",
+        "https://www.amazon.it/*/dp/*",
+
         "https://www.amazon.es/s?*",
+        "https://www.amazon.es/*/dp/*",
+
         "https://www.amazon.co.jp/s?*",
+        "https://www.amazon.co.jp/*/dp/*",
+
         "https://www.amazon.cn/s?*",
+        "https://www.amazon.cn/*/dp/*",
+
         "https://www.amazon.in/s?*",
+        "https://www.amazon.in/*/dp/*",
+
         "https://www.amazon.com.au/s?*",
-        "https://www.amazon.ae/s?*"
+        "https://www.amazon.com.au/*/dp/*",
+
+        "https://www.amazon.ae/s?*",
+        "https://www.amazon.ae/*/dp/*"
+
       ],
       "js": [ "content.js" ],
       "run_at": "document_end"
