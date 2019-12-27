@@ -1,6 +1,6 @@
 {
   "name": "Amazon Copy ASIN",
-  "version": "0.3",
+  "version": "0.4",
   "author": "Jejo.digital",
   "description": "Copy ASIN to clipboard from Amazon search result & product pages.",
   "manifest_version": 2,
@@ -34,6 +34,7 @@
 
         "https://www.amazon.fr/s?*",
         "https://www.amazon.fr/*/dp/*",
+        "https://www.amazon.fr/dp/*",
 
         "https://www.amazon.it/s?*",
         "https://www.amazon.it/*/dp/*",
@@ -46,6 +47,7 @@
 
         "https://www.amazon.cn/s?*",
         "https://www.amazon.cn/*/dp/*",
+        "https://www.amazon.cn/dp/*",
 
         "https://www.amazon.in/s?*",
         "https://www.amazon.in/*/dp/*",
