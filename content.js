@@ -4,9 +4,9 @@ const CAROUSEL_VIEWPORT_HEIGHT_CHANGE = 5; // pixels
 
 const UNIQUE_STRING = 'd9735ea58f704800b5c9ae4fcc046b19';
 const PRODUCT_BLOCK_SELECTOR = 'div:not([data-asin=""])[data-asin]';
-//const PRODUCT_IMAGE_DIV_BORDER_STYLE = '3px dotted';
-const PRODUCT_IMAGE_DIV_BORDER_STYLE = '5px solid';
-const BORDER_POSITIONS = [ 'Top', 'Right', 'Bottom', 'Left' ];
+const PRODUCT_IMAGE_DIV_BORDER_STYLE = '5px solid transparent';
+const ASIN_COPIED_COLOR = 'green';
+const ASIN_NOT_COPIED_COLOR = 'red';
 const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
   'a[href$="#customerReviews"]',
   '.a-icon-row > .a-link-normal + .a-link-normal',
@@ -101,7 +101,7 @@ new MutationObserver(function(mutationRecords) {
       }
     }
   }
-}).observe(document.body, { childList: true, subtree: true, });
+}).observe(document.body, {childList: true, subtree: true});
 
 
 
@@ -253,7 +253,7 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
 
 
 // listen for button clicks
-document.addEventListener('click', async function({ target: image }) {
+document.addEventListener('click', async function({target: image}) {
   l(image);
 
   if (!image.classList.contains(UNIQUE_STRING)) {
@@ -288,20 +288,22 @@ document.addEventListener('click', async function({ target: image }) {
 
 
 
-
 chrome.runtime.onMessage.addListener(function(msg) {
-  cg('runtime.onMessage()', msg);
+  cg('runtime.onMessage()');
+  l(msg);
 
   switch (msg.id) {
     case 'asins':
-
       // store new ASINs
-      asins = msg.payload.asins ?? {};
+      asins = msg.payload.asins ?? [];
 
-      // update all product blocks on page according to new ASINs
-      for (const asin in asinElems) {
-        showAsinCopyState(asin);
-      }
+      updateProductBlocks();
+    break;
+
+    case 'options':
+      options = msg.payload.options;
+
+      updateProductBlocks();
     break;
 
     default:
@@ -313,6 +315,16 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
 
 
+// update all product blocks on page
+function updateProductBlocks() {
+  for (const asin in asinElems) {
+    showAsinCopyState(asin);
+  }
+}
+
+
+
+
 function showAsinCopyState(asin) {
   const elems = asinElems[asin];
   for (let i = 0; i < elems.copyImages.length; ++i) {
@@ -320,11 +332,13 @@ function showAsinCopyState(asin) {
 
     elems.copyImages[i].src = isAsinCopied ? successImageURL : copyImageURL;
 
-    if (!options.isHighlightProductImages) {
-      continue;
+    // highlight product image div ?
+    if (options.isHighlightProductImages) {
+      elems.productImageDivs[i].style.border = PRODUCT_IMAGE_DIV_BORDER_STYLE;
+      elems.productImageDivs[i].style.borderColor = isAsinCopied ? ASIN_COPIED_COLOR : ASIN_NOT_COPIED_COLOR;
     }
-    // highlight product image
-    elems.productImageDivs[i].style.border = PRODUCT_IMAGE_DIV_BORDER_STYLE;
-    elems.productImageDivs[i].style.borderColor =  isAsinCopied ? 'green' : 'red';
+    else {
+      elems.productImageDivs[i].style.border = '';
+    }
   }
 }

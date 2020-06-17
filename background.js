@@ -36,7 +36,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
       }
 
       saveASINs(function() {
-        updateMarketplaceTabs(marketplace);
+        updateTabs(marketplace);
       });
 
     break;
@@ -44,7 +44,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     case 'save_asins_for_marketplace':
       asins[marketplace] = msg.payload.asins;
       saveASINs(function() {
-        updateMarketplaceTabs(marketplace);
+        updateTabs(marketplace);
       });
     break;
 
@@ -64,21 +64,60 @@ chrome.storage.sync.get({
   l('storage.get()', storage);
 
   asins = storage.asins;
+
+  chrome.contextMenus.create({
+    title: 'Highlight product images',
+    type: 'checkbox',
+    checked: storage.options.isHighlightProductImages,
+    contexts: ['browser_action'],
+    onclick: function(info) {
+      const options = {
+        isHighlightProductImages: info.checked,
+      };
+      // save new options
+      chrome.storage.sync.set({
+        options,
+      }, function() {
+        // send new options to all content tabs
+        for (const [tabId] of contentTabs) {
+          chrome.tabs.sendMessage(tabId, {
+            id: 'options',
+            payload: {
+              options,
+            },
+          });
+        }
+      });
+    },
+  });
+
+  chrome.contextMenus.create({
+    title: 'Clear ASIN copy data',
+    contexts: ['browser_action'],
+    onclick: function() {
+      if (!confirm('Are you sure?')) {
+        return;
+      }
+      asins = {};
+      saveASINs(updateTabs);
+    },
+  });
 });
 
 
 
 
 function saveASINs(callback) {
-  chrome.storage.sync.set({ asins }, callback);
+  chrome.storage.sync.set({asins}, callback);
 }
 
 
 
 
-function updateMarketplaceTabs(marketplace) {
+// update content tabs belonging only to marketplace parameter. if marketplace parameter is absent - update all tabs
+function updateTabs(marketplace) {
   for (const [tabId, tabMarketplace] of contentTabs) {
-    if (tabMarketplace !== marketplace) {
+    if (marketplace !== undefined && tabMarketplace !== marketplace) {
       continue;
     }
     chrome.tabs.sendMessage(tabId, {
@@ -93,6 +132,13 @@ function updateMarketplaceTabs(marketplace) {
 
 
 
+chrome.tabs.onRemoved.addListener(function(tabId) {
+  contentTabs.delete(tabId);
+});
+
+
+
+
 function getMarketplaceFromOrigin(origin) {
   return origin.replace('https://www.amazon.', '');
 }
@@ -101,7 +147,7 @@ function getMarketplaceFromOrigin(origin) {
 
 
 chrome.browserAction.onClicked.addListener(function() {
-  chrome.tabs.create({ url: 'asins.html' });
+  chrome.tabs.create({url: 'asins.html'});
 });
 
 

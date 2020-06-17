@@ -4,7 +4,6 @@ const EOL = '\n';
 
 let marketplaces;
 const categories = CATEGORIES;
-let asins;
 
 let selectedMarketplace;
 
@@ -25,8 +24,40 @@ marketplacesList.innerHTML = marketplaces.map((marketplace, ind) => `
 
 
 
-// selecting marketplace
-marketplacesList.addEventListener('click', function({ target: li }) {
+chrome.runtime.onMessage.addListener(function(msg) {
+  cg('runtime.onMessage()');
+  l(msg);
+
+  switch (msg.id) {
+    case 'asins':
+      showASINs(msg.payload.asins);
+    break;
+
+    default:
+      l('message not processed');
+    break;
+  }
+});
+
+
+
+
+function showASINs(asins) {
+  l('showASINs()', asins);
+
+  asinsEdit.value = asins?.join(EOL) ?? '';
+}
+
+
+
+
+// select marketplace
+marketplacesList.addEventListener('click', function({target: li}) {
+  // this strange thing can happen when try to 'select' several items
+  if (li.nodeName === 'UL') {
+    return;
+  }
+
   const itemIndex = li.dataset.ind;
   selectedMarketplace = marketplaces[itemIndex];
 
@@ -37,27 +68,21 @@ marketplacesList.addEventListener('click', function({ target: li }) {
   asinsEdit.focus();
   saveASINsButton.disabled = false;
 
-  // request ASINs
+  // get ASINs from BG page
   chrome.runtime.sendMessage({
     id: 'get_asins_for_marketplace',
     payload: {
       marketplace: selectedMarketplace,
     },
-  }, function(asins) {
-    l(asins);
-    // show ASINs
-    asinsEdit.value = asins?.join(EOL) ?? '';
-  });
+  }, showASINs);
 });
 
 
 
 
-// saving ASINs
+// save ASINs
 saveASINsButton.addEventListener('click', function() {
-  let asins = asinsEdit.value.trim();
-  asins = asins.length === 0 ? [] : asins.split(EOL);
-
+  const asins = asinsEdit.value.split(EOL).map(asin => asin.trim()).filter(asin => asin.length > 0);
   chrome.runtime.sendMessage({
     id: 'save_asins_for_marketplace',
     payload: {
