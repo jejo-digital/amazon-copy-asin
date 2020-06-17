@@ -1,0 +1,57 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="UTF-8">
+
+    <script src="console.js"></script>
+    <script src="categories.js"></script>
+    <script defer src="asins.js"></script>
+
+    <style>
+      .data {
+        display: flex;
+      }
+
+      ul {
+        margin-block-end: 0;
+        margin-block-start: 0;
+        padding-inline-start: 0;
+        list-style-type: none;
+        cursor: default;
+      }
+
+      .selected {
+        background-color: cyan;
+      }
+
+      li:not(.selected):hover {
+        background-color: lightcyan;
+      }
+
+      .data div {
+        min-width: 100px;
+      }
+
+      .data > :last-child {
+        display: flex;
+        flex-direction: column;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="data">
+      <div>
+        Marketplaces:
+        <ul id="marketplaces"></ul>
+      </div>
+
+      <div>
+        ASINs:
+        <textarea rows="20" spellcheck="false"></textarea>
+        <div>
+          <input type="button" id="saveASINs" value="Save" disabled />
+        </div>
+      </div>
+    </section>
+  </body>
+</html>

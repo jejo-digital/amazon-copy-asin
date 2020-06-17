@@ -1,20 +1,27 @@
 {
   "name": "Amazon Copy ASIN",
-  "version": "0.4",
+  "version": "0.7",
   "author": "Jejo.digital",
   "description": "Copy ASIN to clipboard from Amazon search result & product pages.",
   "manifest_version": 2,
 
   "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "img/icon 16.png",
+    "48": "img/icon 48.png",
+    "128": "img/icon 128.png"
+  },
+
+  "browser_action": {},
+
+  "background": {
+    "scripts": [ "console.js", "default options.js", "background.js" ]
   },
 
   "content_scripts": [
     {
       "matches": [
         "https://www.amazon.com/s?*",
+        "https://www.amazon.com/dp/*",
         "https://www.amazon.com/*/dp/*",
 
         "https://www.amazon.co.uk/s?*",
@@ -59,10 +66,12 @@
         "https://www.amazon.ae/*/dp/*"
 
       ],
-      "js": [ "content.js" ],
+      "js": [ "console.js", "default options.js", "categories.js", "content.js" ],
       "run_at": "document_end"
     }
   ],
 
-  "web_accessible_resources": [ "copy.svg", "success.svg" ]
+  "web_accessible_resources": [ "/img/*" ],
+
+  "permissions": [ "storage", "contextMenus" ]
 }
