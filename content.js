@@ -4,8 +4,8 @@ const CAROUSEL_VIEWPORT_HEIGHT_CHANGE = 5; // pixels
 
 const UNIQUE_STRING = 'd9735ea58f704800b5c9ae4fcc046b19';
 const PRODUCT_BLOCK_SELECTOR = 'div:not([data-asin=""])[data-asin]';
-const PRODUCT_IMAGE_DIV_BORDER_STYLE = '5px solid transparent';
-const ASIN_COPIED_COLOR = 'green';
+const PRODUCT_IMAGE_DIV_BORDER_STYLE = '5px dashed transparent';
+const ASIN_COPIED_COLOR = 'lime';
 const ASIN_NOT_COPIED_COLOR = 'red';
 const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
   'a[href$="#customerReviews"]',

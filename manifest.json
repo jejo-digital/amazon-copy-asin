@@ -49,6 +49,9 @@
         "https://www.amazon.es/s?*",
         "https://www.amazon.es/*/dp/*",
 
+        "https://www.amazon.nl/s?*",
+        "https://www.amazon.nl/*/dp/*",
+
         "https://www.amazon.co.jp/s?*",
         "https://www.amazon.co.jp/*/dp/*",
 
