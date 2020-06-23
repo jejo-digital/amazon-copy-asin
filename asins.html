@@ -8,50 +8,22 @@
     <script src="categories.js"></script>
     <script defer src="asins.js"></script>
 
-    <style>
-      .data {
-        display: flex;
-      }
-
-      ul {
-        margin-block-end: 0;
-        margin-block-start: 0;
-        padding-inline-start: 0;
-        list-style-type: none;
-        cursor: default;
-      }
-
-      .selected {
-        background-color: cyan;
-      }
-
-      li:not(.selected):hover {
-        background-color: lightcyan;
-      }
-
-      .data div {
-        min-width: 100px;
-      }
-
-      .data > :last-child {
-        display: flex;
-        flex-direction: column;
-      }
-    </style>
+    <link rel="stylesheet" href="lib/bootstrap.css">
   </head>
   <body>
-    <section class="data">
-      <div>
-        Marketplaces:
-        <ul id="marketplaces"></ul>
+    <section class="container d-flex">
+      <div class="mr-3">
+        <h5>Marketplaces</h5>
+        <table id="marketplaces" class="table table-sm table-bordered table-hover">
+          <tbody>
+          </tbody>
+        </table>
       </div>
 
-      <div>
-        ASINs:
-        <textarea rows="20" spellcheck="false"></textarea>
-        <div>
-          <input type="button" id="saveASINs" value="Save" disabled />
-        </div>
+      <div class="d-flex flex-column">
+        <h5>ASINs</h5>
+        <textarea class="mb-1" rows="15" spellcheck="false"></textarea>
+        <input type="button" id="saveASINs" class="btn btn-primary btn-sm" value="Save" disabled />
       </div>
     </section>
   </body>

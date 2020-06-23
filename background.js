@@ -157,7 +157,16 @@ function getMarketplaceFromOrigin(origin) {
 
 
 chrome.browserAction.onClicked.addListener(function() {
-  chrome.tabs.create({url: 'asins.html'});
+  chrome.tabs.create({url: 'asins.html'}, function(tab) {
+    // new tab is always created in non-incognito window, so if extension icon is pressed from incognito window,
+    // and all non-incognito windows are minimized, nothing will happen on screen. So we manually focus window with newly created tab in this case.
+    chrome.windows.get(tab.windowId, function(window) {
+      if (window.state !== chrome.windows.WindowState.MINIMIZED) {
+        return;
+      }
+      chrome.windows.update(tab.windowId, {focused: true});
+    });
+  });
 });
 
 

@@ -3,22 +3,22 @@
 const EOL = '\n';
 
 let marketplaces;
-const categories = CATEGORIES;
-
 let selectedMarketplace;
 
 
-const marketplacesList = document.querySelector('#marketplaces');
+const marketplacesTableBody = document.querySelector('#marketplaces tbody');
 const asinsEdit = document.querySelector('textarea');
 const saveAsinsButton = document.querySelector('#saveASINs');
 
 
-// get and show marketplaces
+// get and show unique marketplaces
 marketplaces = [...new Set(chrome.runtime.getManifest().content_scripts[0].matches.map(pattern => pattern.match(/(?<=amazon\.).+?(?=\/)/)[0]))];
-marketplacesList.innerHTML = marketplaces.map((marketplace, ind) => `
-  <li data-ind="${ind}">
-    ${marketplace}
-  </li>
+marketplacesTableBody.innerHTML = marketplaces.map((marketplace, ind) => `
+  <tr>
+    <td>
+      ${marketplace}
+    </td>
+  </tr>
 `).join('');
 
 
@@ -52,21 +52,24 @@ function showAsins(asins) {
 
 
 // select marketplace
-marketplacesList.addEventListener('click', function({target: li}) {
-  // this strange thing can happen when try to 'select' several items
-  if (li.nodeName === 'UL') {
+marketplacesTableBody.addEventListener('click', function({target}) {
+  l(target);
+  // this strange thing happens when trying to 'select' several rows with mouse
+  if (target.nodeName !== 'TD') {
     return;
   }
 
-  const itemIndex = li.dataset.ind;
+  const tableRow = target.parentElement;
+  const itemIndex = tableRow.rowIndex;
   selectedMarketplace = marketplaces[itemIndex];
+  l(itemIndex, selectedMarketplace);
 
-  // mark only selected item
-  marketplacesList.parentElement.querySelector('.selected')?.classList.remove('selected');
-  li.classList.add('selected');
+  // mark only selected row
+  marketplacesTableBody.querySelector('.table-active')?.classList.remove('table-active');
+  tableRow.classList.add('table-active');
 
   asinsEdit.focus();
-  saveAsinsButton.disabled = false;
+  saveAsinsButton.value = 'Save';
 
   // get ASINs from BG page
   chrome.runtime.sendMessage({
@@ -75,6 +78,14 @@ marketplacesList.addEventListener('click', function({target: li}) {
       marketplace: selectedMarketplace,
     },
   }, showAsins);
+});
+
+
+
+
+asinsEdit.addEventListener('input', function() {
+  saveAsinsButton.disabled = false;
+  saveAsinsButton.value = 'Save';
 });
 
 
@@ -90,4 +101,7 @@ saveAsinsButton.addEventListener('click', function() {
       marketplace: selectedMarketplace,
     },
   });
+
+  saveAsinsButton.disabled = true;
+  saveAsinsButton.value = 'Saved';
 });
