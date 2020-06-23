@@ -1,5 +1,7 @@
 'use strict';
 
 const DEFAULT_OPTIONS = {
-  isHighlightProductImages: false,
+  isHighlightCopiedProducts: false,
+  isHighlightNotCopiedProducts: false,
+  isHighlightSponsoredProducts: false,
 };

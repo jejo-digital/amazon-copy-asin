@@ -10,7 +10,7 @@ let selectedMarketplace;
 
 const marketplacesList = document.querySelector('#marketplaces');
 const asinsEdit = document.querySelector('textarea');
-const saveASINsButton = document.querySelector('#saveASINs');
+const saveAsinsButton = document.querySelector('#saveASINs');
 
 
 // get and show marketplaces
@@ -30,7 +30,7 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
   switch (msg.id) {
     case 'asins':
-      showASINs(msg.payload.asins);
+      showAsins(msg.payload.asins);
     break;
 
     default:
@@ -42,8 +42,8 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
 
 
-function showASINs(asins) {
-  l('showASINs()', asins);
+function showAsins(asins) {
+  l('showAsins()', asins);
 
   asinsEdit.value = asins?.join(EOL) ?? '';
 }
@@ -66,7 +66,7 @@ marketplacesList.addEventListener('click', function({target: li}) {
   li.classList.add('selected');
 
   asinsEdit.focus();
-  saveASINsButton.disabled = false;
+  saveAsinsButton.disabled = false;
 
   // get ASINs from BG page
   chrome.runtime.sendMessage({
@@ -74,17 +74,17 @@ marketplacesList.addEventListener('click', function({target: li}) {
     payload: {
       marketplace: selectedMarketplace,
     },
-  }, showASINs);
+  }, showAsins);
 });
 
 
 
 
 // save ASINs
-saveASINsButton.addEventListener('click', function() {
+saveAsinsButton.addEventListener('click', function() {
   const asins = asinsEdit.value.split(EOL).map(asin => asin.trim()).filter(asin => asin.length > 0);
   chrome.runtime.sendMessage({
-    id: 'save_asins_for_marketplace',
+    id: 'set_asins_for_marketplace',
     payload: {
       asins,
       marketplace: selectedMarketplace,

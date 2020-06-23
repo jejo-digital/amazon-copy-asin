@@ -7,6 +7,7 @@ const PRODUCT_BLOCK_SELECTOR = 'div:not([data-asin=""])[data-asin]';
 const PRODUCT_IMAGE_DIV_BORDER_STYLE = '5px dashed transparent';
 const ASIN_COPIED_COLOR = 'lime';
 const ASIN_NOT_COPIED_COLOR = 'red';
+const ASIN_SPONSORED_COLOR = 'yellow';
 const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
   'a[href$="#customerReviews"]',
   '.a-icon-row > .a-link-normal + .a-link-normal',
@@ -20,8 +21,10 @@ const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
 ];
 
 
-let asinElems = {};
+// ASIN buttons and images 
+const asinElems = {};
 
+const sponsoredAsins = [];
 
 let options;
 
@@ -246,6 +249,11 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
   // store product image div for quick access later
   asinElems[asin].productImageDivs.push(productBlock.querySelector('img').parentElement);
 
+  // sponsored?
+  if (productBlock.querySelector('.s-sponsored-label-info-icon') !== null) {
+    sponsoredAsins.push(asin);
+  }
+
   showAsinCopyState(asin);
 }
 
@@ -332,13 +340,19 @@ function showAsinCopyState(asin) {
 
     elems.copyImages[i].src = isAsinCopied ? successImageURL : copyImageURL;
 
-    // highlight product image div ?
-    if (options.isHighlightProductImages) {
-      elems.productImageDivs[i].style.border = PRODUCT_IMAGE_DIV_BORDER_STYLE;
-      elems.productImageDivs[i].style.borderColor = isAsinCopied ? ASIN_COPIED_COLOR : ASIN_NOT_COPIED_COLOR;
+    // highlight product image div
+    elems.productImageDivs[i].style.border = '';
+    let borderColor;
+    if (isAsinCopied && options.isHighlightCopiedProducts) {
+      borderColor = (sponsoredAsins.includes(asin) && options.isHighlightSponsoredProducts) ? ASIN_SPONSORED_COLOR : ASIN_COPIED_COLOR;
     }
-    else {
-      elems.productImageDivs[i].style.border = '';
+    else if (!isAsinCopied && options.isHighlightNotCopiedProducts) {
+      borderColor = ASIN_NOT_COPIED_COLOR;
+    }
+
+    if (borderColor !== undefined) {
+      elems.productImageDivs[i].style.border = PRODUCT_IMAGE_DIV_BORDER_STYLE;
+      elems.productImageDivs[i].style.borderColor = borderColor;
     }
   }
 }

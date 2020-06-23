@@ -1,6 +1,6 @@
 {
   "name": "Amazon Copy ASIN",
-  "version": "0.8",
+  "version": "0.9",
   "author": "Jejo.digital",
   "description": "Copy ASIN to clipboard from Amazon search result & product pages.",
   "manifest_version": 2,

@@ -2,7 +2,7 @@
 
 let asins;  
 
-// tabs where content script started
+// tabs where content script started & 'control panel' tabs
 const contentTabs = new Map();
 
 
@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
   switch(msg.id) {
     case 'get_asins_for_marketplace':
 
-      // store tab id and its page marketplace
+      // store tab id and its marketplace
       contentTabs.set(sender.tab.id, marketplace);
 
       sendResponse(asins[marketplace]);
@@ -35,15 +35,15 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
         }
       }
 
-      saveASINs(function() {
+      saveAsins(function() {
         updateTabs(marketplace);
       });
 
     break;
 
-    case 'save_asins_for_marketplace':
+    case 'set_asins_for_marketplace':
       asins[marketplace] = msg.payload.asins;
-      saveASINs(function() {
+      saveAsins(function() {
         updateTabs(marketplace);
       });
     break;
@@ -65,30 +65,13 @@ chrome.storage.sync.get({
 
   asins = storage.asins;
 
+  createCheckboxMenu('Highlight copied products', 'isHighlightCopiedProducts');
+  createCheckboxMenu('Highlight not-copied products', 'isHighlightNotCopiedProducts');
+  createCheckboxMenu('Highlight sponsored products', 'isHighlightSponsoredProducts');
+
   chrome.contextMenus.create({
-    title: 'Highlight product images',
-    type: 'checkbox',
-    checked: storage.options.isHighlightProductImages,
+    type: 'separator',
     contexts: ['browser_action'],
-    onclick: function(info) {
-      const options = {
-        isHighlightProductImages: info.checked,
-      };
-      // save new options
-      chrome.storage.sync.set({
-        options,
-      }, function() {
-        // send new options to all content tabs
-        for (const [tabId] of contentTabs) {
-          chrome.tabs.sendMessage(tabId, {
-            id: 'options',
-            payload: {
-              options,
-            },
-          });
-        }
-      });
-    },
   });
 
   chrome.contextMenus.create({
@@ -99,22 +82,49 @@ chrome.storage.sync.get({
         return;
       }
       asins = {};
-      saveASINs(updateTabs);
+      saveAsins(updateTabs);
     },
   });
+
+
+  function createCheckboxMenu(title, optionsPropertyName) {
+    chrome.contextMenus.create({
+      title,
+      type: 'checkbox',
+      checked: storage.options[optionsPropertyName],
+      contexts: ['browser_action'],
+      onclick: function(info) {
+        storage.options[optionsPropertyName] = info.checked;
+        // save new options
+        chrome.storage.sync.set({
+          options: storage.options,
+        }, function() {
+          // send new options to all tabs
+          for (const [tabId] of contentTabs) {
+            chrome.tabs.sendMessage(tabId, {
+              id: 'options',
+              payload: {
+                options: storage.options,
+              },
+            });
+          }
+        });
+      },
+    });
+  }
 });
 
 
 
 
-function saveASINs(callback) {
+function saveAsins(callback) {
   chrome.storage.sync.set({asins}, callback);
 }
 
 
 
 
-// update content tabs belonging only to marketplace parameter. if marketplace parameter is absent - update all tabs
+// send ASINs to tabs belonging only to marketplace parameter. if marketplace parameter is absent - send to all tabs
 function updateTabs(marketplace) {
   for (const [tabId, tabMarketplace] of contentTabs) {
     if (marketplace !== undefined && tabMarketplace !== marketplace) {

@@ -11,6 +11,7 @@ Supported marketplaces:
 * www.amazon.fr
 * www.amazon.it
 * www.amazon.es
+* www.amazon.nl
 * www.amazon.co.jp
 * www.amazon.cn
 * www.amazon.in
