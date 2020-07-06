@@ -12,8 +12,12 @@ const saveAsinsButton = document.querySelector('#saveASINs');
 const openSelectedAsinsButton = document.querySelector('#openSelectedAsins');
 
 
-// get and show unique marketplaces from manifest.json
-marketplaces = [...new Set(chrome.runtime.getManifest().content_scripts[0].matches.map(pattern => pattern.match(/(?<=amazon\.).+?(?=\/)/)[0]))];
+const manifest = chrome.runtime.getManifest();
+
+document.title = manifest.name + ' - Control panel';
+
+// get and show unique marketplaces
+marketplaces = [...new Set(manifest.content_scripts[0].matches.map(pattern => pattern.match(/(?<=amazon\.).+?(?=\/)/)[0]))];
 marketplacesTableBody.innerHTML = marketplaces.map((marketplace, ind) => `
   <tr>
     <td>
@@ -22,26 +26,60 @@ marketplacesTableBody.innerHTML = marketplaces.map((marketplace, ind) => `
   </tr>
 `).join('');
 
-// select marketplace from URL
-const initialMarketplace = new URL(location.href).searchParams.get('marketplace');
-l(initialMarketplace);
-const initialMarketplaceIndex = marketplaces.indexOf(initialMarketplace);
-l(initialMarketplaceIndex);
-if (initialMarketplaceIndex !== -1) {
-  setTimeout(function() {
-    marketplacesTableBody.children[initialMarketplaceIndex].firstElementChild.click();
-  });
+
+
+// select marketplace
+{
+  // marketplace in URL?
+  const urlMarketplace = new URL(location.href).searchParams.get('marketplace');
+  l(urlMarketplace);
+  if (urlMarketplace !== null) {
+    selectMarketplace(urlMarketplace);
+  }
+  else {
+    // try to get marketplace from active tab
+    chrome.tabs.query({active: true, currentWindow: true}, function([tab]) {
+      l(tab);
+
+      const activeTabOrigin = new URL(tab.url).origin;
+      l(activeTabOrigin);
+      if (!activeTabOrigin.startsWith(AMAZON_URL_PREFIX)) {
+        l('not Amazon tab');
+        return;
+      }
+
+      selectMarketplace(getMarketplaceFromOrigin(activeTabOrigin));
+    });
+  }
+
+
+
+
+  function selectMarketplace(marketplace) {
+    l('selectMarketplace()', marketplace);
+
+    const marketplaceIndex = marketplaces.indexOf(marketplace.toLowerCase());
+    l(marketplaceIndex);
+    if (marketplaceIndex === -1) {
+      return;
+    }
+
+    // emulate click
+    setTimeout(function() {
+      marketplacesTableBody.children[marketplaceIndex].firstElementChild.click();
+    });
+  }
 }
 
 
 
 
-chrome.runtime.onMessage.addListener(function(msg) {
-  cg('runtime.onMessage()');
-  l(msg);
+const port = chrome.runtime.connect();
+port.onMessage.addListener(function(msg) {
+  cg('port.onMessage()', msg);
 
   switch (msg.id) {
-    case 'asins':
+    case 'asins_for_marketplace':
       showAsins(msg.payload.asins);
       saveAsinsButton.disabled = true;
     break;
@@ -66,7 +104,6 @@ function showAsins(asins) {
 
 // select marketplace
 marketplacesTableBody.addEventListener('click', function({target}) {
-  l(target);
   // this strange thing happens when trying to 'select' several rows with mouse
   if (target.nodeName !== 'TD') {
     return;
@@ -82,17 +119,15 @@ marketplacesTableBody.addEventListener('click', function({target}) {
   tableRow.classList.add('table-active');
 
   asinsEdit.focus();
-  saveAsinsButton.disabled = true;
-
   openSelectedAsinsButton.disabled = false;
 
-  // get ASINs from BG page
-  chrome.runtime.sendMessage({
+  // request ASINs from BG page
+  port.postMessage({
     id: 'get_asins_for_marketplace',
     payload: {
       marketplace: selectedMarketplace,
     },
-  }, showAsins);
+  });
 });
 
 
@@ -117,7 +152,7 @@ function clearText(text) {
 saveAsinsButton.addEventListener('click', function() {
   asinsEdit.value = clearText(asinsEdit.value);
   const asins = asinsEdit.value.split(EOL);
-  chrome.runtime.sendMessage({
+  port.postMessage({
     id: 'set_asins_for_marketplace',
     payload: {
       asins,
@@ -153,7 +188,7 @@ openSelectedAsinsButton.addEventListener('click', function() {
   const selectedText = clearText(asinsEdit.value.slice(asinsEdit.selectionStart, asinsEdit.selectionEnd));
   l(selectedText);
 
-  // mass tabs creation
+  // create tabs with selected ASINs
   for (const asin of selectedText.split(EOL)) {
     chrome.tabs.create({url: AMAZON_URL_PREFIX + selectedMarketplace + '/dp/' + asin});
   }

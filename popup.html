@@ -1,0 +1,86 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="UTF-8">
+
+    <script src="console.js"></script>
+    <script src="const.js"></script>
+    <script src="misc.js"></script>
+    <script src="default options.js"></script>
+    <script defer src="popup_asins.js"></script>
+    <script defer src="popup_options.js"></script>
+
+    <link rel="stylesheet" href="lib/bootstrap.css">
+
+    <style>
+      body {
+        min-width: 560px;
+      }
+    </style>
+  </head>
+  <body class="m-2">
+    <section class="d-flex">
+      <div class="mr-3">
+        <h5>Marketplaces</h5>
+        <table id="marketplaces" class="table table-sm table-bordered table-hover">
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex flex-column mr-3">
+        <h5>ASINs</h5>
+        <textarea class="mb-1" rows="15" spellcheck="false"></textarea>
+        <div class="btn-group-vertical">
+          <input type="button" id="saveASINs" class="btn btn-primary btn-sm" value="Save" disabled />
+          <input type="button" id="openSelectedAsins" class="btn btn-primary btn-sm" value="Open selected" disabled />
+        </div>
+      </div>
+
+      <form>
+        <div class="form-check">
+          <h5>Options</h5>
+          <label class="form-check-label">
+            <input class="form-check-input" type="checkbox" value="" id="isHighlightCopiedProducts">
+            Highlight copied products
+          </label>
+        </div>
+
+        <div class="form-check">
+          <label class="form-check-label">
+            <input class="form-check-input" type="checkbox" value="" id="isHighlightNotCopiedProducts">
+            Highlight not-copied products
+          </label>
+        </div>
+
+        <div class="form-check">
+          <label class="form-check-label">
+            <input class="form-check-input" type="checkbox" value="" id="isHighlightSponsoredProducts">
+            Highlight sponsored products
+          </label>
+
+        </div>
+
+        <hr />
+
+        <div class="form-check">
+          <label class="form-check-label">
+            <input class="form-check-input" type="checkbox" value="" id="isHideSponsoredProducts">
+            Hide sponsored products
+          </label>
+        </div>
+
+        <div class="form-check">
+          <label class="form-check-label">
+            <input class="form-check-input" type="checkbox" value="" id="isHideCopiedProducts">
+            Hide copied products
+          </label>
+        </div>
+
+        <hr />
+
+        <input type="button" id="clearAllAsins" class="btn btn-sm btn-danger" value="Clear all ASINs" />
+      </form>
+    </section>
+  </body>
+</html>

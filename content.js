@@ -256,7 +256,7 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
     sponsoredAsins.push(asin);
   }
 
-  showAsinState(asin);
+  updateProductBlock(asin);
 }
 
 
@@ -303,7 +303,7 @@ chrome.runtime.onMessage.addListener(function(msg) {
   l(msg);
 
   switch (msg.id) {
-    case 'asins':
+    case 'asins_for_marketplace':
       // store new ASINs
       asins = msg.payload.asins ?? [];
 
@@ -328,17 +328,18 @@ chrome.runtime.onMessage.addListener(function(msg) {
 // update all product blocks on page
 function updateProductBlocks() {
   for (const asin in asinElems) {
-    showAsinState(asin);
+    updateProductBlock(asin);
   }
 }
 
 
 
 
-function showAsinState(asin) {
+function updateProductBlock(asin) {
   const elems = asinElems[asin];
   for (let i = 0; i < elems.copyImages.length; ++i) {
     const isAsinCopied = asins.includes(asin);
+    const isSponsoredASIN = sponsoredAsins.includes(asin);
     const productImage = elems.productImages[i];
 
     elems.copyImages[i].src = isAsinCopied ? successImageURL : copyImageURL;
@@ -359,8 +360,12 @@ function showAsinState(asin) {
 
     // highlight sponsored product image
     elems.productImages[i].style.outline = '';
-    if (sponsoredAsins.includes(asin) && options.isHighlightSponsoredProducts) {
+    if (options.isHighlightSponsoredProducts && isSponsoredASIN) {
       productImage.style.outline = SPONSORED_PRODUCT_IMAGE_BORDER_STYLE;
     }
+
+    // hide sponsored or copied product
+    productImage.style.visibility =
+      ((options.isHideSponsoredProducts && isSponsoredASIN) || (options.isHideCopiedProducts && isAsinCopied)) ? 'hidden' : '';
   }
 }

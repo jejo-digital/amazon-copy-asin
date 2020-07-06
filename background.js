@@ -2,27 +2,31 @@
 
 let asins;  
 
-// tabs where content script started & 'control panel' tabs
-const contentTabs = new Map();
+// site tabs where content script started
+const siteTabs = new Map();
+
+// popups & tabs with popup page
+const popupViews = new Map();
 
 
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
   cg('runtime.onMessage()');
   l(msg, sender);
 
-  const marketplace = sender.origin.startsWith('chrome-extension') ? msg.payload.marketplace : getMarketplaceFromOrigin(sender.origin);
-  l(marketplace);
-
   switch(msg.id) {
-    case 'get_asins_for_marketplace':
+    // msg from content script
+    case 'get_asins_for_marketplace': {
+      const marketplace = getMarketplaceFromOrigin(sender.origin);
 
       // store tab id and its marketplace
-      contentTabs.set(sender.tab.id, marketplace);
+      siteTabs.set(sender.tab.id, marketplace);
 
       sendResponse(asins[marketplace]);
+    }
     break;
 
-    case 'mark_asin_as_copied':
+    case 'mark_asin_as_copied': {
+      const marketplace = getMarketplaceFromOrigin(sender.origin);
       const {asin} = msg.payload;
 
       if (asins[marketplace] === undefined) {
@@ -36,16 +40,22 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
       }
 
       saveAsins(function() {
-        updateTabs(marketplace);
+        updateViews(marketplace);
       });
-
+    }
     break;
 
-    case 'set_asins_for_marketplace':
-      asins[marketplace] = msg.payload.asins;
-      saveAsins(function() {
-        updateTabs(marketplace);
-      });
+    case 'options':
+      const {options} = msg.payload;
+      // send options to site tabs
+      for (const [tabId] of siteTabs) {
+        chrome.tabs.sendMessage(tabId, {
+          id: 'options',
+          payload: {
+            options,
+          },
+        });
+      }
     break;
 
     default:
@@ -56,62 +66,13 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
 
 
 
-
+// load all ASINs
 chrome.storage.sync.get({
   asins: {},
-  options: DEFAULT_OPTIONS,
 }, function(storage) {
   l('storage.get()', storage);
 
   asins = storage.asins;
-
-  createCheckboxMenu('Highlight copied products', 'isHighlightCopiedProducts');
-  createCheckboxMenu('Highlight not-copied products', 'isHighlightNotCopiedProducts');
-  createCheckboxMenu('Highlight sponsored products', 'isHighlightSponsoredProducts');
-
-  chrome.contextMenus.create({
-    type: 'separator',
-    contexts: ['browser_action'],
-  });
-
-  chrome.contextMenus.create({
-    title: 'Clear ASIN copy data',
-    contexts: ['browser_action'],
-    onclick: function() {
-      if (!confirm('Are you sure?')) {
-        return;
-      }
-      asins = {};
-      saveAsins(updateTabs);
-    },
-  });
-
-
-  function createCheckboxMenu(title, optionsPropertyName) {
-    chrome.contextMenus.create({
-      title,
-      type: 'checkbox',
-      checked: storage.options[optionsPropertyName],
-      contexts: ['browser_action'],
-      onclick: function(info) {
-        storage.options[optionsPropertyName] = info.checked;
-        // save new options
-        chrome.storage.sync.set({
-          options: storage.options,
-        }, function() {
-          // send new options to all tabs
-          for (const [tabId] of contentTabs) {
-            chrome.tabs.sendMessage(tabId, {
-              id: 'options',
-              payload: {
-                options: storage.options,
-              },
-            });
-          }
-        });
-      },
-    });
-  }
 });
 
 
@@ -124,18 +85,32 @@ function saveAsins(callback) {
 
 
 
-// send ASINs to tabs belonging only to marketplace parameter. if marketplace parameter is absent - send to all tabs
-function updateTabs(marketplace) {
-  for (const [tabId, tabMarketplace] of contentTabs) {
-    if (marketplace !== undefined && tabMarketplace !== marketplace) {
-      continue;
+// send ASINs to tabs showing data for marketplace parameter. if marketplace parameter is absent - send to all tabs
+function updateViews(marketplace) {
+  l('updateViews()', marketplace);
+
+  // content script tabs
+  for (const [tabId, tabMarketplace] of siteTabs) {
+    if (marketplace === undefined || tabMarketplace === marketplace) {
+      chrome.tabs.sendMessage(tabId, {
+        id: 'asins_for_marketplace',
+        payload: {
+          asins: asins[tabMarketplace],
+        },
+      });
     }
-    chrome.tabs.sendMessage(tabId, {
-      id: 'asins',
-      payload: {
-        asins: asins[tabMarketplace],
-      },
-    });
+  }
+
+  // popups & tabs with popup page
+  for (const [popupPort, popupMarketplace] of popupViews) {
+    if (marketplace === undefined || popupMarketplace === marketplace) {
+      popupPort.postMessage({
+        id: 'asins_for_marketplace',
+        payload: {
+          asins: asins[popupMarketplace],
+        },
+      });
+    }
   }
 }
 
@@ -143,29 +118,78 @@ function updateTabs(marketplace) {
 
 
 chrome.tabs.onRemoved.addListener(function(tabId) {
-  contentTabs.delete(tabId);
+  siteTabs.delete(tabId);
 });
 
 
 
 
-function getMarketplaceFromOrigin(origin) {
-  return origin.replace('https://www.amazon.', '');
-}
+chrome.contextMenus.create({
+  title: 'Open popup in tab',
+  contexts: ['browser_action'],
+  onclick: function(info, tab) {
+    // get marketplace from current tab URL and pass it to new tab in URL
+    let newTabURL = 'popup.html';
+    const activeTabOrigin = new URL(tab.url).origin;
+    l(activeTabOrigin);
+    if (activeTabOrigin.startsWith(AMAZON_URL_PREFIX)) {
+      newTabURL += '?marketplace=' + getMarketplaceFromOrigin(activeTabOrigin);
+    }
+    l(newTabURL);
+
+    chrome.tabs.create({url: newTabURL});
+  },
+});
 
 
 
 
-chrome.browserAction.onClicked.addListener(function() {
-  chrome.tabs.create({url: 'asins.html'}, function(tab) {
-    // new tab is always created in non-incognito window, so if extension icon is pressed from incognito window,
-    // and all non-incognito windows are minimized, nothing will happen on screen. So we manually focus window with newly created tab in this case.
-    chrome.windows.get(tab.windowId, function(window) {
-      if (window.state !== chrome.windows.WindowState.MINIMIZED) {
-        return;
+// communicating with popups & popup tabs
+chrome.runtime.onConnect.addListener(function(port) {
+  l('runtime.onConnect()', port);
+
+  port.onMessage.addListener(function(msg) {
+    cg('port.onMessage()', msg);
+
+    switch(msg.id) {
+      case 'get_asins_for_marketplace': {
+        const {marketplace} = msg.payload;
+        // associate port with its marketplace
+        popupViews.set(port, marketplace);
+
+        port.postMessage({
+          id: 'asins_for_marketplace',
+          payload: {
+            asins: asins[marketplace],
+          },
+        });
       }
-      chrome.windows.update(tab.windowId, {focused: true});
-    });
+      break;
+
+      case 'set_asins_for_marketplace': {
+        const {marketplace} = msg.payload;
+        asins[marketplace] = msg.payload.asins;
+        saveAsins(function() {
+          updateViews(marketplace);
+        });
+      }
+      break;
+
+      case 'clear_all_asins':
+        asins = {};
+        saveAsins(updateViews);
+      break;
+
+      default:
+        l('message not processed');
+      break;
+    }
+  });
+
+  port.onDisconnect.addListener(function(port) {
+    l('port.onDisconnect()', port);
+
+    popupViews.delete(port);
   });
 });
 
@@ -177,7 +201,8 @@ Object.defineProperty(window, 's', {
   get() {
     cg('current situation');
     l('asins', asins);
-    l('contentTabs', contentTabs);
+    l('siteTabs', siteTabs);
+    l('popupViews', popupViews);
 
     chrome.storage.sync.get(function(items) {
       l('storage.get()', items);
