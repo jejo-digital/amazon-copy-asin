@@ -8,7 +8,7 @@ const PRODUCT_IMAGE_BORDER_STYLE = '5px dashed transparent';
 const PRODUCT_WITH_COPIED_ASIN_IMAGE_BORDER_COLOR = 'lime';
 const PRODUCT_WITH_NOT_COPIED_ASIN_IMAGE_BORDER_COLOR = 'red';
 
-const SPONSORED_PRODUCT_IMAGE_BORDER_STYLE = '5px solid yellow';
+const SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE = '5px solid yellow';
 
 const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
   'a[href$="#customerReviews"]',
@@ -26,11 +26,11 @@ const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
 // ASIN buttons and images 
 const asinElems = {};
 
-const sponsoredAsins = [];
+const sponsoredProductImages = [];
 
 let options;
 
-// ASINs for page marketplace
+// copied ASINs for page marketplace
 let asins;
 
 // get them
@@ -248,12 +248,16 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
   }
   asinElems[asin].copyImages.push(copyImage);
 
-  // store product image div for quick access later
-  asinElems[asin].productImages.push(productBlock.querySelector('img').parentElement);
+  // it is not the image itself, but DIV around it. but for simplicity we call it image
+  const productImage = productBlock.querySelector('img').parentElement;
+  productImage.style.border = PRODUCT_IMAGE_BORDER_STYLE;
+
+  // store product image for quick access later
+  asinElems[asin].productImages.push(productImage);
 
   // sponsored?
   if (productBlock.querySelector('.s-sponsored-label-info-icon') !== null) {
-    sponsoredAsins.push(asin);
+    sponsoredProductImages.push(productImage);
   }
 
   updateProductBlock(asin);
@@ -339,29 +343,25 @@ function updateProductBlock(asin) {
   const elems = asinElems[asin];
   for (let i = 0; i < elems.copyImages.length; ++i) {
     const isAsinCopied = asins.includes(asin);
-    const isSponsoredASIN = sponsoredAsins.includes(asin);
     const productImage = elems.productImages[i];
+    const isSponsoredASIN = sponsoredProductImages.includes(productImage);
 
     elems.copyImages[i].src = isAsinCopied ? successImageURL : copyImageURL;
 
     // highlight product image with(without) copied ASIN
-    productImage.style.border = '';
-    let borderColor;
+    let borderColor = 'transparent';
     if (isAsinCopied && options.isHighlightCopiedProducts) {
       borderColor = PRODUCT_WITH_COPIED_ASIN_IMAGE_BORDER_COLOR;
     }
     else if (!isAsinCopied && options.isHighlightNotCopiedProducts) {
       borderColor = PRODUCT_WITH_NOT_COPIED_ASIN_IMAGE_BORDER_COLOR;
     }
-    if (borderColor !== undefined) {
-      productImage.style.border = PRODUCT_IMAGE_BORDER_STYLE;
-      productImage.style.borderColor = borderColor;
-    }
+    productImage.style.borderColor = borderColor;
 
     // highlight sponsored product image
-    elems.productImages[i].style.outline = '';
+    productImage.style.outline = '';
     if (options.isHighlightSponsoredProducts && isSponsoredASIN) {
-      productImage.style.outline = SPONSORED_PRODUCT_IMAGE_BORDER_STYLE;
+      productImage.style.outline = SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE;
     }
 
     // hide sponsored or copied product
