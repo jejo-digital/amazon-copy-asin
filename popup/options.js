@@ -121,10 +121,10 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
 
 
-document.querySelector('#clearAllAsins').addEventListener('click', function() {
-  showConfirmDialog('ALL ASINs in ALL marketplaces will be deleted. Proceed?', function() {
+document.querySelector('#clearAllAsins').addEventListener('click', async function() {
+  if (await showConfirmDialog('ALL ASINs in ALL marketplaces will be deleted. Proceed?')) {
     port.postMessage({
       id: 'clear_all_asins',
     });
-  });
+  }
 });

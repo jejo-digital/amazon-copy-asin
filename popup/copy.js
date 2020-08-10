@@ -8,13 +8,13 @@ const copyTopButton = document.querySelector('#copyTop');
 
 // copy as comma separated
 document.querySelector('#copyCommaSeparated').addEventListener('click', function() {
-  copyAsinsToClipboard(asins, ',');
+  copyAsinsToClipboard(categoryAsins, ',');
 });
 
 
 
 
-// copy top
+// copy top ASINS
 copyTopButton.value += TOP_ASINS_AMOUNT;
 copyTopButton.addEventListener('click', function() {
   const currBsrs = bsrs[selectedMarketplace];
@@ -24,7 +24,7 @@ copyTopButton.addEventListener('click', function() {
   }
 
   const asinsToCopy = new Map();
-  for (let i = 0; i < asins.length; ++i) {
+  for (let i = 0; i < categoryAsins.length; ++i) {
     const row = asinsTableBody.rows[i];
 
     if (asinsToCopy.size === TOP_ASINS_AMOUNT) {
@@ -32,7 +32,7 @@ copyTopButton.addEventListener('click', function() {
       break;
     }
 
-    const asin = asins[i];
+    const asin = categoryAsins[i];
     const bsr = currBsrs[asin];
     l(asin, bsr);
 
@@ -53,9 +53,9 @@ copyTopButton.addEventListener('click', function() {
   }
 
   l(asinsToCopy);
-  const asinsToCopyAsArray = [...asinsToCopy.values()];
-  l(asinsToCopyAsArray);
-  copyAsinsToClipboard(asinsToCopyAsArray, EOL);
+  const arrayOfAsinsToCopy = [...asinsToCopy.values()];
+  l(arrayOfAsinsToCopy);
+  copyAsinsToClipboard(arrayOfAsinsToCopy, EOL);
 });
 
 

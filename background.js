@@ -1,6 +1,7 @@
 'use strict';
 
-let asins;  
+let asins;
+let notes;
 
 // site tabs where content script started
 const siteTabs = new Map();
@@ -25,20 +26,11 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     }
     break;
 
-    case 'mark_asin_as_copied': {
-      const marketplace = getMarketplaceFromOrigin(sender.origin);
-      const {asin} = msg.payload;
-
-      if (asins[marketplace] === undefined) {
-        // first ASIN in marketplace
-        asins[marketplace] = [asin];
-      }
-      else {
-        if (!asins[marketplace].includes(asin)) {
-          asins[marketplace].push(asin);
-        }
-      }
-
+    case 'set_asin_data': {
+      const marketplace = siteTabs.get(sender.tab.id);
+      const {asin, data} = msg.payload;
+      ensureDbStructure(marketplace, asin);
+      Object.assign(asins[marketplace][asin], data);
       saveAsins(function() {
         updateViews(marketplace);
       });
@@ -58,6 +50,25 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
       }
     break;
 
+    case 'get_asin_notes': {
+      const {asin} = msg.payload;
+      sendResponse(notes[asin]);
+    }
+    break;
+
+    case 'set_asin_notes': {
+      const {asin, notes: newNotes} = msg.payload;
+      if (newNotes.length === 0) {
+        delete notes[asin];
+      }
+      else {
+        notes[asin] = newNotes;
+      }
+
+      chrome.storage.sync.set({notes});
+    }
+    break;
+
     default:
       l('message not processed');
     break;
@@ -66,13 +77,16 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
 
 
 
-// load all ASINs
+
+// load ASINs and notes
 chrome.storage.sync.get({
   asins: {},
+  notes: {},
 }, function(storage) {
   l('storage.get()', storage);
 
   asins = storage.asins;
+  notes = storage.notes;
 });
 
 
@@ -85,7 +99,25 @@ function saveAsins(callback) {
 
 
 
-// send ASINs to tabs showing data for marketplace parameter. if marketplace parameter is absent - send to all tabs
+// todo inline
+function ensureDbStructure(marketplace, asin) {
+
+  if (asins[marketplace] === undefined) {
+    // first data for marketplace
+    asins[marketplace] = {};
+  }
+
+  if (asins[marketplace][asin] === undefined) {
+    // first data for ASIN
+    asins[marketplace][asin] = {
+    };
+  }
+}
+
+
+
+
+// send ASIN data to tabs with site page opened for 'marketplace' parameter. if marketplace parameter is absent - send to all tabs
 function updateViews(marketplace) {
   l('updateViews()', marketplace);
 
@@ -201,6 +233,7 @@ Object.defineProperty(window, 's', {
   get() {
     cg('current situation');
     l('asins', asins);
+    l('notes', notes);
     l('siteTabs', siteTabs);
     l('popupViews', popupViews);
 

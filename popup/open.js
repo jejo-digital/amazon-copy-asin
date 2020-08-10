@@ -22,13 +22,13 @@ document.querySelector('#openSelected').addEventListener('click', function() {
   if (range.startContainer === range.endContainer) {
     // selection inside one table cell
     const tr = range.commonAncestorContainer.parentElement.parentElement;
-    const asin = asins[tr.sectionRowIndex];
+    const asin = categoryAsins[tr.sectionRowIndex];
     selectedAsins.push(asin);
   }
   else if (range.commonAncestorContainer.nodeName === 'TR') {
     // selection of several table cells in one row
     const tr = range.commonAncestorContainer;
-    const asin = asins[tr.sectionRowIndex];
+    const asin = categoryAsins[tr.sectionRowIndex];
     selectedAsins.push(asin);
   }
   else {
@@ -37,7 +37,7 @@ document.querySelector('#openSelected').addEventListener('click', function() {
     const endRow = range.endContainer.parentElement.parentElement;
     l(startRow, endRow);
     for (let rowIndex = startRow.sectionRowIndex; rowIndex <= endRow.sectionRowIndex; ++rowIndex) {
-      selectedAsins.push(asins[rowIndex]);
+      selectedAsins.push(categoryAsins[rowIndex]);
     }
   }
   l(selectedAsins);

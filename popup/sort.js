@@ -16,7 +16,7 @@ function sortAsinsByBSR() {
     return;
   }
 
-  asins.sort(function(a, b) {
+  categoryAsins.sort(function(a, b) {
     const bsrA = currBsrs[a];
     const bsrB = currBsrs[b];
 
@@ -39,7 +39,7 @@ function sortAsinsByBSR() {
 
 
 document.querySelector('#obtainBsrs').addEventListener('click', function() {
-  const asinsToProcess = asins.filter(asin => bsrs[selectedMarketplace]?.[asin] === undefined);
+  const asinsToProcess = categoryAsins.filter(asin => bsrs[selectedMarketplace]?.[asin] === undefined);
   l(asinsToProcess);
 
   if (asinsToProcess.length === 0) {
@@ -129,7 +129,9 @@ document.querySelector('#obtainBsrs').addEventListener('click', function() {
 
       function checkForEndOfProcessing() {
         if (amountOfProcessedAsins === asinsToProcess.length) {
+          // close dialog after small delay
           setTimeout(() => $(bsrProgressDialog).modal('hide'), 300);
+          timeoutIds = [];
         }
       }
 
@@ -152,4 +154,5 @@ bsrProgressDialog.querySelector('button').addEventListener('click', function() {
 
 function cancelPendingBsrRequests() {
   timeoutIds.forEach(id => clearTimeout(id));
+  timeoutIds = [];
 }

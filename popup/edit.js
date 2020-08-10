@@ -2,7 +2,7 @@
 
 
 document.querySelector('#edit').addEventListener('click', function() {
-  asinsTextarea.value = asins.join(EOL);
+  asinsTextarea.value = categoryAsins.join(EOL);
   $(asinsDialog).modal();
   asinsTextarea.select();
 });
@@ -10,13 +10,71 @@ document.querySelector('#edit').addEventListener('click', function() {
 
 
 asinsDialog.querySelector('.btn-primary').addEventListener('click', function() {
-  let asins = clearText(asinsTextarea.value);
-  asins = (asins === '') ? [] : asins.split(EOL);
-  l(asins);
+  let newAsins = clearText(asinsTextarea.value);
+  newAsins = (newAsins === '') ? [] : deduplicateArray(newAsins.split(EOL));
+  l(newAsins);
+
+  if (selectedCategory === '') {
+    // no category
+
+    // delete ASINs that are not from new ASIN list
+    for (const asin in marketplaceAsins) {
+      if (!newAsins.includes(asin)) {
+        delete marketplaceAsins[asin];
+      }
+    }
+
+    // add ASINs from new ASIN list
+    for (const asin of newAsins) {
+      if (marketplaceAsins[asin] === undefined) {
+        marketplaceAsins[asin] = {
+          isCopied: true,
+        };
+      }
+    }
+  }
+  else { // some category is selected
+    // delete selected category from ASINs that are not from new ASIN list
+    for (const asin in marketplaceAsins) {
+      l(asin);
+      if (!newAsins.includes(asin)) {
+        delete marketplaceAsins[asin].categories?.[selectedCategory];
+      }
+    }
+
+    nl();
+
+    // add selected category to ASINs from new ASIN list
+    for (const asin of newAsins) {
+      l(asin);
+      if (marketplaceAsins[asin] === undefined) {
+        // new ASIN
+        marketplaceAsins[asin] = {
+          isCopied: true,
+          categories: {
+            [selectedCategory]: true,
+          },
+        };
+      }
+      else { // existing ASIN
+        if (marketplaceAsins[asin].categories === undefined) {
+          // ASIN without categories
+          marketplaceAsins[asin].categories = {
+            [selectedCategory]: true,
+          };
+        }
+        else {
+          // ASIN with categories
+          marketplaceAsins[asin].categories[selectedCategory] = true;
+        }
+      }
+    }
+  }
+
   port.postMessage({
     id: 'set_asins_for_marketplace',
     payload: {
-      asins,
+      asins: marketplaceAsins,
       marketplace: selectedMarketplace,
     },
   });

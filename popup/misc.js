@@ -23,15 +23,33 @@ function showAlertDialog(msg) {
 
 
 
-// todo Promise
-function showConfirmDialog(msg, callback) {
-  confirmDialogText.textContent = msg;
-  $(confirmDialog).modal();
 
-  const primaryButton = confirmDialog.querySelector('.btn-primary');
+function showConfirmDialog(msg) {
+  return new Promise(function (resolve) {
+    let wasConfirmed = false;
+  
+    confirmDialogText.textContent = msg;
+    $(confirmDialog).modal();
 
-  primaryButton.addEventListener('click', callback);
-  $(confirmDialog).one('hidden.bs.modal', function() {
-    primaryButton.removeEventListener('click', callback);
+    const primaryButton = confirmDialog.querySelector('.btn-primary');
+
+    primaryButton.addEventListener('click', registerConfirmation);
+    $(confirmDialog).one('hidden.bs.modal', function() {
+      primaryButton.removeEventListener('click', registerConfirmation);
+
+      resolve(wasConfirmed);
+    });
+
+
+    function registerConfirmation() {
+     wasConfirmed = true;
+    }
   });
+}
+
+
+
+
+function deduplicateArray(array) {
+  return [...new Set(array)];
 }

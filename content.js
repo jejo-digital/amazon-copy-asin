@@ -42,13 +42,15 @@ let sponsoredProductNumber = 1;
 let isNeedNewGroupOfSponsoredProducts = true;
 let letterForCurrentGroupOfSponsoredProducts;
 
+let asin; // just temp value
+
 // get ASINs
 chrome.runtime.sendMessage({
    id: 'get_asins_for_marketplace',
 }, function(newAsins) {
   l(newAsins);
 
-  asins = newAsins ?? [];
+  asins = newAsins ?? {};
 
   chrome.storage.sync.get({
     options: DEFAULT_OPTIONS,
@@ -66,6 +68,7 @@ chrome.runtime.sendMessage({
 });
 
 
+// search result page?
 const isSRP = location.pathname === '/s';
 
 
@@ -78,12 +81,93 @@ toolbarTemplate.style = `
   z-index: 9;
 `;
 toolbarTemplate.innerHTML = `
-  <img width="25" height="25" title="Can't find ASIN" src="${chrome.runtime.getURL('img/question.svg')}" />
-  <span style="font-size: 20px; line-height: initial; display: none;"></span>
+  <img width="25" height="25" title="Can't find ASIN" data-button-id="copy" src="${chrome.runtime.getURL('img/question.svg')}" style="cursor: not-allowed;" />
+  <img width="25" height="25" data-button-id="props" src="${chrome.runtime.getURL('img/menu.svg')}" style="
+    cursor: pointer;
+    display: none;
+  " />
+  <span title="Position" style="
+    font-size: 20px;
+    line-height: normal;
+    display: none;
+    vertical-align: top;
+  "></span>
+  <span title="Categories" style="
+    height: 32px;
+    display: inline-flex;
+    position: relative;
+    top: -2px;
+    flex-direction: column;
+    flex-wrap: wrap;
+  ">
+  </span>
 `;
 
 const copyImageURL = chrome.runtime.getURL('img/copy.svg');
 const successImageURL = chrome.runtime.getURL('img/success.svg');
+
+
+// prepare dialog for Categories and Notes
+const DIALOG_HTML = `
+  <dialog id="${UNIQUE_STRING}">
+    <input type="button" style="
+      background-color: transparent;
+      position: absolute;
+      top: 2px;
+      left: 0;
+      border: none;
+      font-size: 23px;
+    " class="dialog-cancel" value="&times;">
+    <form method="dialog" style="margin-bottom: 0;">
+      <header style="text-align: center;">
+        ASIN <span></span> 
+      </header>
+      <main style="
+        margin-top: 10px;
+        margin-bottom: 10px;
+      ">
+        </div>
+          Categories:
+          <table style="
+            margin-left: 10px;
+            margin-bottom: 10px;
+          ">
+            <tbody style="text-transform: capitalize;">
+              ${CATEGORIES.map(category => `
+                <tr>
+                  <td>
+                    <label>
+                      <input type="checkbox" data-category="${category}" />
+                      ${getCategoryBadgeHTML(category, `
+                        display: inline-block;
+                        vertical-align: middle;
+                      `)}
+                      ${category}
+                    </label>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <label style="font-weight: normal;">
+            Notes:
+            <br />
+            <textarea style="margin-left: 10px; width: auto;" autofocus></textarea>
+          </label>
+        </div>
+      </main>
+      <footer style="text-align: right;">
+        <input type="button" class="dialog-cancel" value="Cancel" />
+        <input type="submit" value="Save" />
+      </footer>
+    </form>
+  </dialog>
+`;
+document.body.insertAdjacentHTML('beforeEnd', DIALOG_HTML);
+const asinDialog = document.body.lastElementChild;
+const asinDialogTextarea = asinDialog.querySelector('textarea');
 
 
 
@@ -163,7 +247,7 @@ function processProductBlock(productBlock) {
     return;
   }
 
-  // find place to inject button
+  // find place to inject toolbar
   let el;
   for (const selector of BEFORE_TOOLBAR_ELEMENT_SELECTORS) {
     el = productBlock.querySelector(selector);
@@ -257,14 +341,19 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
   copyImage.style.cursor = 'pointer';
   copyImage.className = UNIQUE_STRING;
 
-  // info about product in current block
+  // properties button
+  const propsImage = copyImage.nextElementSibling;
+  propsImage.title = 'Properties of ASIN ' + asin + '...';
+  propsImage.style.display = '';
+
+  // store info about product in current block
   const product = {
     asin,
-    // store reference to copy button image
+    // store reference to 'copy ASIN' button image
     copyAsinImage: copyImage,
   };
 
-  // it may not be the image itself, but also DIV around it. for simplicity we just call it image.
+  // it may not be the image itself, but also DIV around or near it. for simplicity we just call it image.
   let productImage = productBlock.querySelector('img').parentElement;
   if (productImage.nodeName === 'SPAN') {
     // sponsored product in the very top of page
@@ -295,7 +384,7 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
 
   // show product number(position) on search result page only
   if (isSRP) {
-    const positionSpan = toolbar.lastElementChild;
+    const positionSpan = toolbar.children[2];
     if (isSponsoredProduct) {
       if (isNeedNewGroupOfSponsoredProducts) {
         isNeedNewGroupOfSponsoredProducts = false;
@@ -329,39 +418,114 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
 
 
 
-// listen for 'Copy ASIN' button clicks
+// listen for toolbar and clicks of close buttons in properties dialog
 document.addEventListener('click', async function({target: elem}) {
   l(elem);
 
+  // close properties dialog
+  if (elem.className === 'dialog-cancel') {
+    elem.closest('dialog').close();
+    return;
+  }
+
   const parent = elem.parentElement;
 
-  // react only to 'Copy ASIN' button
+  // react only to toolbar buttons
   if (!(elem.nodeName === 'IMG' && parent.classList.contains(UNIQUE_STRING))) {
     return;
   }
 
-  const asin = parent.dataset.asin;
+  asin = parent.dataset.asin;
   l(asin);
-
-  // copy ASIN
-  try {
-    await navigator.clipboard.writeText(asin);
-  }
-  catch(err) {
-    alert('Copy error: ' + err.message);
-  }
-
-  // if ASIN was already copied, it is already marked as copied. no need to mark it again
-  if (asins.includes(asin)) {
-    l('ASIN is already copied');
+  if (asin === undefined) {
     return;
   }
 
-  // send info about new ASIN to BG page
+  switch (elem.dataset.buttonId) {
+    case 'copy':
+      // copy ASIN
+      try {
+        await navigator.clipboard.writeText(asin);
+      }
+      catch(err) {
+        alert('Copy error: ' + err.message);
+        return;
+      }
+
+      // if ASIN was already copied, it is already marked as copied. no need to mark it again
+      if (!!(asins[asin]?.isCopied)) {
+        l('ASIN is already copied');
+        return;
+      }
+
+      // send info about new ASIN to BG page
+      chrome.runtime.sendMessage({
+         id: 'set_asin_data',
+         payload: {
+           asin,
+           data: {
+             isCopied: true,
+           },
+         },
+      });
+    break;
+
+    case 'props':
+      // show ASIN value
+      asinDialog.querySelector('header span').textContent = asin;
+
+      // show ASIN categories
+      const asinCategories = asins[asin]?.categories ?? {};
+      for (const inp of asinDialog.querySelectorAll('input[data-category]')) {
+        inp.checked = !!asinCategories[inp.dataset.category];
+      }
+      asinDialog.showModal();
+
+      // get ASIN notes
+      chrome.runtime.sendMessage({
+         id: 'get_asin_notes',
+         payload: {
+           asin,
+         },
+      }, function(asinNotes) {
+        l( asinNotes);
+
+        // show notes (undefined will be transfered as null that will result in empty string)
+        asinDialogTextarea.value = asinNotes;
+        asinDialogTextarea.select();
+      });
+    break;
+  }
+});
+
+
+
+
+// save ASIN properties
+asinDialog.querySelector('form').addEventListener('submit', function() {
+  // get categories
+  const categories = Array.from(asinDialog.querySelectorAll('input[data-category]')).filter(inp => inp.checked).reduce(function(acc, inp) {
+    acc[inp.dataset.category] = true;
+    return acc;
+  }, {});
+  // save categories
   chrome.runtime.sendMessage({
-     id: 'mark_asin_as_copied',
+     id: 'set_asin_data',
      payload: {
        asin,
+       data: {
+        categories,
+       },
+     },
+  });
+
+  // save notes
+  const notes = asinDialogTextarea.value.trim();
+  chrome.runtime.sendMessage({
+     id: 'set_asin_notes',
+     payload: {
+       asin,
+       notes,
      },
   });
 });
@@ -376,7 +540,9 @@ chrome.runtime.onMessage.addListener(function(msg) {
   switch (msg.id) {
     case 'asins_for_marketplace':
       // store new ASINs
-      asins = msg.payload.asins ?? [];
+      asins = msg.payload.asins ?? {};
+
+      asinDialog.close();
 
       updateProductBlocks();
     break;
@@ -407,7 +573,7 @@ function updateProductBlocks() {
 
 
 function updateProductBlock(product) {
-  const isAsinCopied = asins.includes(product.asin);
+  const isAsinCopied = !!(asins[product.asin]?.isCopied);
 
   // product with copied ASIN?
   product.copyAsinImage.src = isAsinCopied ? successImageURL : copyImageURL;
@@ -431,6 +597,20 @@ function updateProductBlock(product) {
 
   // show product position?
   if (isSRP) {
-    product.copyAsinImage.nextElementSibling.style.display = options.isShowProductPositions ? '' : 'none';
+    product.copyAsinImage.nextElementSibling.nextElementSibling.style.display = options.isShowProductPositions ? '' : 'none';
   }
+
+  // show ASIN categories
+  const categories = asins[product.asin]?.categories;
+  let categoriesStr;
+  if (categories === undefined) {
+    categoriesStr = '';
+  }
+  else {
+    categoriesStr = CATEGORIES.filter(category => !!categories[category]).map(category => getCategoryBadgeHTML(category, `
+      margin-right: 1px;
+      margin-bottom: 1px;
+    `)).join('');
+  }
+  product.copyAsinImage.nextElementSibling.nextElementSibling.nextElementSibling.innerHTML = categoriesStr;
 }

@@ -3,11 +3,16 @@
 let marketplaces;
 let selectedMarketplace;
 
-let asins;
+let selectedCategory;
+
+let marketplaceAsins;
+let categoryAsins;
 let bsrs = {};
 
 
 const marketplacesTableBody = document.querySelector('#marketplaces tbody');
+const categoriesTable = document.querySelector('#categories');
+const categoriesTableBody = categoriesTable.lastElementChild;
 const asinsTableBody = document.querySelector('#asins tbody');
 
 const asinButtonsGroup = document.querySelector('fieldset');
@@ -26,8 +31,8 @@ const manifest = chrome.runtime.getManifest();
 document.title = manifest.name + ' - Control panel';
 
 // get and show unique marketplaces
-marketplaces = [...new Set(manifest.content_scripts[0].matches.map(pattern => pattern.match(/(?<=amazon\.).+?(?=\/)/)[0]))];
-marketplacesTableBody.innerHTML = marketplaces.map((marketplace, ind) => `
+marketplaces = deduplicateArray(manifest.content_scripts[0].matches.map(pattern => pattern.match(/(?<=amazon\.).+?(?=\/)/)[0]));
+marketplacesTableBody.innerHTML = marketplaces.map(marketplace => `
   <tr>
     <td>
       ${marketplace}
@@ -36,11 +41,12 @@ marketplacesTableBody.innerHTML = marketplaces.map((marketplace, ind) => `
 `).join('');
 
 
-
-// select marketplace from URL
+// select marketplace or category from URL
 {
+  const urlSearchParams = new URL(location.href).searchParams;
+
   // marketplace in URL?
-  const urlMarketplace = new URL(location.href).searchParams.get('marketplace');
+  const urlMarketplace = urlSearchParams.get('marketplace');
   l(urlMarketplace);
   if (urlMarketplace !== null) {
     selectMarketplace(urlMarketplace);
@@ -60,6 +66,17 @@ marketplacesTableBody.innerHTML = marketplaces.map((marketplace, ind) => `
       selectMarketplace(getMarketplaceFromOrigin(activeTabOrigin));
     });
   }
+
+  // category in URL?
+  const urlCategory = urlSearchParams.get('category');
+  l(urlCategory);
+  if (urlCategory == null) {
+    selectedCategory = '';
+  }
+  else {
+    selectedCategory = CATEGORIES.includes(urlCategory) ? urlCategory : '';
+  }
+  l(selectedCategory);
 
 
 
@@ -83,13 +100,43 @@ marketplacesTableBody.innerHTML = marketplaces.map((marketplace, ind) => `
 
 
 
+// show categories
+categoriesTableBody.innerHTML = CATEGORIES.map(category => `
+  <tr>
+    <td>
+      ${getCategoryBadgeHTML(category, `
+        display: inline-block;
+        vertical-align: middle;
+        position: relative;
+        top: -2px;
+      `)}
+      ${category}
+    </td>
+  </tr>
+`).join('');
+
+// select category from URL, if exists
+if (selectedCategory === '') {
+  categoriesTable.firstElementChild.firstElementChild.classList.add('table-active');
+}
+else {
+  categoriesTableBody.children[CATEGORIES.indexOf(selectedCategory)].classList.add('table-active');
+}
+
+
+
+
 const port = chrome.runtime.connect();
 port.onMessage.addListener(function(msg) {
   cg('port.onMessage()', msg);
 
   switch (msg.id) {
     case 'asins_for_marketplace':
-      asins = msg.payload.asins ?? [];
+      // close possible opened Edit dialog
+      $(document.querySelector('#asinsDialog.show')).modal('hide');
+
+      marketplaceAsins = msg.payload.asins ?? {};
+      filterAsinsByCategory();
       sortAsinsByBSR();
       showAsins();
       asinButtonsGroup.disabled = false;
@@ -104,13 +151,24 @@ port.onMessage.addListener(function(msg) {
 
 
 
-function showAsins() {
-  l('showAsins()', asins);
+function filterAsinsByCategory() {
+  let entries = Object.entries(marketplaceAsins);
+  if (selectedCategory !== '') {
+    entries = entries.filter(([, asinData]) => asinData.categories?.[selectedCategory] ?? false);
+  }
+  categoryAsins = entries.map(([asinValue]) => asinValue);
+}
 
-  asinsTableBody.innerHTML = asins.map((asin, ind) => `
+
+
+
+function showAsins() {
+  l('showAsins()', marketplaceAsins);
+
+  asinsTableBody.innerHTML = categoryAsins.map(asin => `
     <tr>
       <td>
-        ${asin}
+        ${marketplaceAsins[asin].isCopied ? asin : `<s>${asin}</s>`}
       </td>
       <td>
         ${bsrs[selectedMarketplace]?.[asin] ?? ''}
@@ -124,23 +182,14 @@ function showAsins() {
 
 // select marketplace
 marketplacesTableBody.addEventListener('click', function({target}) {
-  // this strange thing happens when trying to select several rows with mouse
-  if (target.nodeName !== 'TD') {
+  const clickedItemInfo = getItemInfoFromElem(target);
+  l(clickedItemInfo);
+  if (clickedItemInfo === null) {
     return;
   }
 
-  const tableRow = target.parentElement;
-  if (tableRow.classList.contains('table-active')) {
-    // this marketplace is already selected
-    return;
-  }
-  const itemIndex = tableRow.rowIndex;
-  selectedMarketplace = marketplaces[itemIndex];
-  l(itemIndex, selectedMarketplace);
-
-  // mark only selected row
-  marketplacesTableBody.querySelector('.table-active')?.classList.remove('table-active');
-  tableRow.classList.add('table-active');
+  selectedMarketplace = marketplaces[clickedItemInfo.rowIndex];
+  l(selectedMarketplace);
 
   // request ASINs from BG page
   port.postMessage({
@@ -154,13 +203,63 @@ marketplacesTableBody.addEventListener('click', function({target}) {
 
 
 
+// select category
+categoriesTable.addEventListener('click', function({target}) {
+  const clickedItemInfo = getItemInfoFromElem(target);
+  l(clickedItemInfo);
+  if (clickedItemInfo === null) {
+    return;
+  }
+
+  selectedCategory = clickedItemInfo.bodyIndex === 0 ? '' : CATEGORIES[clickedItemInfo.rowIndex];
+  l(selectedCategory);
+
+  filterAsinsByCategory();
+  sortAsinsByBSR();
+  showAsins();
+});
+
+
+
+
+// return body and row indices of clicked row, or null if row is already selected
+function getItemInfoFromElem(elem) {
+  // 1. elem is <tbody> after selecting several rows with mouse
+  // 2. <span> may exists in row
+  if (!(elem.nodeName === 'TD' || elem.nodeName === 'SPAN')) {
+    return null;
+  }
+
+  const tableRow = elem.parentElement;
+  if (tableRow.classList.contains('table-active')) {
+    // this row is already selected
+    return null;
+  }
+
+  const tableBody = tableRow.parentElement;
+
+  // mark only one row in entire table as selected
+  tableBody.parentElement.querySelector('.table-active')?.classList.remove('table-active');
+  tableRow.classList.add('table-active');
+
+  return {
+    bodyIndex: Number(tableBody.dataset.index),
+    rowIndex: tableRow.sectionRowIndex,
+  };
+}
+
+
+
+
 // dev
 Object.defineProperty(window, 's', {
   get() {
     cg('current situation');
-    l('asins', asins);
+    l('marketplaceAsins', marketplaceAsins);
+    l('categoryAsins', categoryAsins);
     l('bsrs', bsrs);
     l('selectedMarketplace', selectedMarketplace);
+    l('selectedCategory', selectedCategory);
     l('options', options);
     console.groupEnd();
   },
