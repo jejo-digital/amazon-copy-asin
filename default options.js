@@ -7,4 +7,8 @@ const DEFAULT_OPTIONS = {
 
   isHideSponsoredProducts: false,
   isHideCopiedProducts: false,
+
+  isShowProductPositions: true,
+
+  bsrRequestsInterval: 300, // msec
 };

@@ -45,12 +45,12 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     }
     break;
 
-    case 'options':
+    case 'content_script_options':
       const {options} = msg.payload;
       // send options to site tabs
       for (const [tabId] of siteTabs) {
         chrome.tabs.sendMessage(tabId, {
-          id: 'options',
+          id: 'content_script_options',
           payload: {
             options,
           },

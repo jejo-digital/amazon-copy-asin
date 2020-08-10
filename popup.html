@@ -7,14 +7,27 @@
     <script src="const.js"></script>
     <script src="misc.js"></script>
     <script src="default options.js"></script>
-    <script defer src="popup_asins.js"></script>
-    <script defer src="popup_options.js"></script>
 
-    <link rel="stylesheet" href="lib/bootstrap.css">
+    <script src="popup/lib/jquery-3.5.1.js"></script>
+    <script src="popup/lib/bootstrap.js"></script>
+
+    <script defer src="popup/misc.js"></script>
+    <script defer src="popup/asins.js"></script>
+    <script defer src="popup/edit.js"></script>
+    <script defer src="popup/open.js"></script>
+    <script defer src="popup/sort.js"></script>
+    <script defer src="popup/copy.js"></script>
+    <script defer src="popup/options.js"></script>
+
+    <link rel="stylesheet" href="popup/lib/bootstrap.css">
 
     <style>
       body {
-        min-width: 560px;
+        min-width: 600px;
+      }
+
+      input[type=number] {
+        width: 80px;
       }
     </style>
   </head>
@@ -30,57 +43,166 @@
 
       <div class="d-flex flex-column mr-3">
         <h5>ASINs</h5>
-        <textarea class="mb-1" rows="15" spellcheck="false"></textarea>
-        <div class="btn-group-vertical">
-          <input type="button" id="saveASINs" class="btn btn-primary btn-sm" value="Save" disabled />
-          <input type="button" id="openSelectedAsins" class="btn btn-primary btn-sm" value="Open selected" disabled />
-        </div>
+        <table id="asins" class="table table-sm table-bordered table-hover">
+          <thead>
+            <tr>
+              <th>Value</th>
+              <th>BSR</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
       </div>
 
-      <form>
-        <div class="form-check">
-          <h5>Options</h5>
-          <label class="form-check-label">
-            <input class="form-check-input" type="checkbox" value="" id="isHighlightCopiedProducts">
-            Highlight copied products
-          </label>
-        </div>
+      <div>
+        <form>
+          <div class="form-check">
+            <h5>Options</h5>
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightCopiedProducts">
+              Highlight copied products
+            </label>
+          </div>
 
-        <div class="form-check">
-          <label class="form-check-label">
-            <input class="form-check-input" type="checkbox" value="" id="isHighlightNotCopiedProducts">
-            Highlight not-copied products
-          </label>
-        </div>
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightNotCopiedProducts">
+              Highlight not-copied products
+            </label>
+          </div>
 
-        <div class="form-check">
-          <label class="form-check-label">
-            <input class="form-check-input" type="checkbox" value="" id="isHighlightSponsoredProducts">
-            Highlight sponsored products
-          </label>
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightSponsoredProducts">
+              Highlight sponsored products
+            </label>
+          </div>
 
-        </div>
+          <hr />
+
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHideSponsoredProducts">
+              Hide sponsored products
+            </label>
+          </div>
+
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHideCopiedProducts">
+              Hide copied products
+            </label>
+          </div>
+
+          <hr />
+
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isShowProductPositions">
+              Show product positions
+            </label>
+          </div>
+        </form>
 
         <hr />
 
-        <div class="form-check">
-          <label class="form-check-label">
-            <input class="form-check-input" type="checkbox" value="" id="isHideSponsoredProducts">
-            Hide sponsored products
-          </label>
-        </div>
-
-        <div class="form-check">
-          <label class="form-check-label">
-            <input class="form-check-input" type="checkbox" value="" id="isHideCopiedProducts">
-            Hide copied products
-          </label>
-        </div>
+        <form>
+          <div class="form-group">
+            <label>
+              BSR requests interval, msec
+              <input type="number" id="bsrRequestsInterval" min="0" step="100" required />
+            </label>
+          </div>
+        </form>
 
         <hr />
 
+        <fieldset class="btn-group-vertical" disabled>
+          <input type="button" id="edit" class="btn btn-primary btn-sm" value="Edit..." />
+          <input type="button" id="obtainBsrs" class="btn btn-primary btn-sm" value="Sort by BSR..." />
+          <input type="button" id="copyTop" class="btn btn-primary btn-sm" value="Copy top " />
+          <input type="button" id="openSelected" class="btn btn-primary btn-sm" value="Open selected" />
+          <input type="button" id="copyCommaSeparated" class="btn btn-primary btn-sm" value="Copy comma separated" />
+        </fieldset>
         <input type="button" id="clearAllAsins" class="btn btn-sm btn-danger" value="Clear all ASINs" />
-      </form>
+      </div>
     </section>
+
+    <div class="modal fade" id="asinsDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit ASIN list</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <textarea rows="15" spellcheck="false"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="bsrProgressDialog" data-backdrop="static" data-keyboard="false" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Obtaining BSRs...</h5>
+          </div>
+          <div class="modal-body">
+            <div class="progress">
+              <div class="progress-bar" role="progressbar"></div>
+            </div>
+            <p class="h6 text-center"></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="alertDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-body">
+            <h6></h6>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="confirmDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-body">
+            <h6></h6>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center" style="position: fixed; top: 0; left: 0; right: 0;">
+      <div id="successCopyToast" class="toast text-white bg-success" data-delay="1000" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-body">
+          <span></span>
+          ASINs copied.
+        </div>
+      </div>
+    </div>
+
   </body>
 </html>

@@ -1,14 +1,18 @@
 'use strict';
 
-const UNIQUE_STRING = 'd9735ea58f704800b5c9ae4fcc046b19';
-const PRODUCT_BLOCK_SELECTOR = 'div:not([data-asin=""])[data-asin]';
-const CAROUSEL_VIEWPORT_HEIGHT_CHANGE = 5; // pixels
-
 const PRODUCT_IMAGE_BORDER_STYLE = '5px dashed transparent';
 const PRODUCT_WITH_COPIED_ASIN_IMAGE_BORDER_COLOR = 'lime';
 const PRODUCT_WITH_NOT_COPIED_ASIN_IMAGE_BORDER_COLOR = 'red';
 
 const SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE = '5px solid yellow';
+
+const ORGANIC_PRODUCT_NUMBER_COLOR = 'lime';
+const SPONSORED_PRODUCT_NUMBER_COLOR = 'red';
+const LETTER_FOR_FIRST_GROUP_OF_SPONSORED_PRODUCTS = 'A';
+
+const UNIQUE_STRING = 'd9735ea58f704800b5c9ae4fcc046b19';
+const PRODUCT_BLOCK_SELECTOR = 'div:not([data-asin=""])[data-asin]';
+const CAROUSEL_VIEWPORT_HEIGHT_CHANGE = 5; // pixels
 
 const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
   'a[href$="#customerReviews"]',
@@ -20,26 +24,31 @@ const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
   'span.a-color-price',
   'a.a-link-normal.a-text-normal',
   '.sb_1REHiRA7',
+  'a.cerberus-asin + a',
 ];
 
 
-// ASIN buttons and images 
-const asinElems = {};
-
-const sponsoredProductImages = [];
+// info about products on page
+const products = [];
 
 let options;
 
 // copied ASINs for page marketplace
 let asins;
 
-// get them
+// for showing product positions on page
+let organicProductNumber = 1;
+let sponsoredProductNumber = 1;
+let isNeedNewGroupOfSponsoredProducts = true;
+let letterForCurrentGroupOfSponsoredProducts;
+
+// get ASINs
 chrome.runtime.sendMessage({
    id: 'get_asins_for_marketplace',
-}, function(newASINs) {
-  l(newASINs);
+}, function(newAsins) {
+  l(newAsins);
 
-  asins = newASINs ?? [];
+  asins = newAsins ?? [];
 
   chrome.storage.sync.get({
     options: DEFAULT_OPTIONS,
@@ -57,19 +66,21 @@ chrome.runtime.sendMessage({
 });
 
 
+const isSRP = location.pathname === '/s';
 
 
-const copyImageTemplate = document.createElement('img');
-copyImageTemplate.src = chrome.runtime.getURL('/img/question.svg');
-copyImageTemplate.width = 25;
-copyImageTemplate.height = 25
-copyImageTemplate.title = "Can't find ASIN";
-copyImageTemplate.style = `
+// toolbar with buttons
+const toolbarTemplate = document.createElement('span');
+toolbarTemplate.className = UNIQUE_STRING;
+toolbarTemplate.style = `
   position: absolute;
   margin-left: 3px;
   z-index: 9;
 `;
-
+toolbarTemplate.innerHTML = `
+  <img width="25" height="25" title="Can't find ASIN" src="${chrome.runtime.getURL('img/question.svg')}" />
+  <span style="font-size: 20px; line-height: initial; display: none;"></span>
+`;
 
 const copyImageURL = chrome.runtime.getURL('img/copy.svg');
 const successImageURL = chrome.runtime.getURL('img/success.svg');
@@ -114,9 +125,14 @@ new MutationObserver(function(mutationRecords) {
 function processProductBlock(productBlock) {
   cg('processProductBlock()', productBlock);
 
+  // hacks for carousel items
   if (productBlock.nodeName === 'LI') {
     productBlock = productBlock.firstElementChild;
-    l('adjust');
+    l('adjust 1');
+    if (productBlock.nodeName === 'STYLE') {
+      productBlock = productBlock.nextElementSibling;
+      l('adjust 2');
+    }
   }
 
   if (productBlock === null) {
@@ -156,7 +172,7 @@ function processProductBlock(productBlock) {
     }
   }
   if(el === null) {
-    e('unknown product block');
+    l('unknown product block');
     return;
   }
 
@@ -184,17 +200,17 @@ function processProductBlock(productBlock) {
 
 
 function addUItoBlock(productBlock, insertToolbarElem, position) {
-  const copyImage = copyImageTemplate.cloneNode();
-  insertToolbarElem.insertAdjacentElement(position, copyImage);
+  const toolbar = toolbarTemplate.cloneNode(true);
+  insertToolbarElem.insertAdjacentElement(position, toolbar);
 
   // try to find ASIN
   let el;
   let asin;
-  el = copyImage.closest(PRODUCT_BLOCK_SELECTOR);
+  el = toolbar.closest(PRODUCT_BLOCK_SELECTOR);
   if (el === null) {
-    el = copyImage.closest('div[data-p13n-asin-metadata]');
+    el = toolbar.closest('div[data-p13n-asin-metadata]');
     if (el === null) {
-      el = copyImage.previousElementSibling;
+      el = toolbar.previousElementSibling;
       if (el === null) {
         // unknown situation
       }
@@ -214,12 +230,12 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
 
   // try another way
   if (asin === undefined) {
-    asin = copyImage.previousElementSibling.href?.match(/\/dp\/(.+)\//)?.[1];
+    asin = toolbar.previousElementSibling.href?.match(/\/dp\/(.+)\//)?.[1];
   }
 
   // and another one
   if (asin === undefined) {
-    asin = copyImage.closest('.cerberus-asin-content')?.firstElementChild.dataset.asin;
+    asin = toolbar.closest('.cerberus-asin-content')?.firstElementChild.dataset.asin;
   }
 
   if (asin === '') {
@@ -232,49 +248,100 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
     return;
   }
 
+  // prepare toolbar for using
+  toolbar.dataset.asin = asin;
 
-  // prepare copy button for using
-  copyImage.dataset.asin = asin;
+  // copy ASIN button
+  const copyImage = toolbar.firstElementChild;
   copyImage.title = 'Copy ASIN ' + asin;
   copyImage.style.cursor = 'pointer';
   copyImage.className = UNIQUE_STRING;
 
-  // store copy button image for quick access later
-  if (asinElems[asin] === undefined) {
-    asinElems[asin] = {
-      copyImages: [],
-      productImages: [],
-    };
-  }
-  asinElems[asin].copyImages.push(copyImage);
+  // info about product in current block
+  const product = {
+    asin,
+    // store reference to copy button image
+    copyAsinImage: copyImage,
+  };
 
-  // it is not the image itself, but DIV around it. but for simplicity we call it image
-  const productImage = productBlock.querySelector('img').parentElement;
+  // it may not be the image itself, but also DIV around it. for simplicity we just call it image.
+  let productImage = productBlock.querySelector('img').parentElement;
+  if (productImage.nodeName === 'SPAN') {
+    // sponsored product in the very top of page
+    productImage = productBlock.previousElementSibling;
+  }
+  else if (productImage.nodeName === 'A') {
+    if (productImage.classList.contains('a-link-normal')) {
+      // carousel item
+      productImage = productImage.firstElementChild;
+    }
+    else {
+      // item in the top of page like in 'Lower Priced Items to Consider' block
+      productImage = productImage.parentElement;
+    }
+  }
   productImage.style.border = PRODUCT_IMAGE_BORDER_STYLE;
 
-  // store product image for quick access later
-  asinElems[asin].productImages.push(productImage);
+  // store reference to product image
+  product.image = productImage;
 
-  // sponsored?
-  if (productBlock.querySelector('.s-sponsored-label-info-icon') !== null) {
-    sponsoredProductImages.push(productImage);
+  // sponsored product?
+  const isSponsoredProduct = productBlock.querySelector('.s-sponsored-label-info-icon') !== null ||
+                             // sponsored product in the very top of page
+                             productBlock.closest('[cel_widget_id$=CreativeDesktop]') !== null;
+  if (isSponsoredProduct) {
+    product.isSponsored = true;
   }
 
-  updateProductBlock(asin);
+  // show product number(position) on search result page only
+  if (isSRP) {
+    const positionSpan = toolbar.lastElementChild;
+    if (isSponsoredProduct) {
+      if (isNeedNewGroupOfSponsoredProducts) {
+        isNeedNewGroupOfSponsoredProducts = false;
+        if (letterForCurrentGroupOfSponsoredProducts === undefined) {
+          // first group
+          letterForCurrentGroupOfSponsoredProducts = LETTER_FOR_FIRST_GROUP_OF_SPONSORED_PRODUCTS;
+        }
+        else {
+          // get next letter for not first group
+          letterForCurrentGroupOfSponsoredProducts = String.fromCharCode(letterForCurrentGroupOfSponsoredProducts.charCodeAt() + 1);
+        }
+      }
+
+      positionSpan.textContent = letterForCurrentGroupOfSponsoredProducts + sponsoredProductNumber++;
+      positionSpan.style.color = SPONSORED_PRODUCT_NUMBER_COLOR;
+    }
+    else {
+      isNeedNewGroupOfSponsoredProducts = true;
+
+      // skip advices
+      if (productBlock.closest('[cel_widget_id=MAIN-SHOPPING_ADVISER]') === null) {
+        positionSpan.textContent = organicProductNumber++;
+        positionSpan.style.color = ORGANIC_PRODUCT_NUMBER_COLOR;
+      }
+    }
+  }
+  products.push(product);
+  updateProductBlock(product);
 }
 
 
 
 
-// listen for button clicks
-document.addEventListener('click', async function({target: image}) {
-  l(image);
+// listen for 'Copy ASIN' button clicks
+document.addEventListener('click', async function({target: elem}) {
+  l(elem);
 
-  if (!image.classList.contains(UNIQUE_STRING)) {
+  const parent = elem.parentElement;
+
+  // react only to 'Copy ASIN' button
+  if (!(elem.nodeName === 'IMG' && parent.classList.contains(UNIQUE_STRING))) {
     return;
   }
 
-  const asin = image.dataset.asin;
+  const asin = parent.dataset.asin;
+  l(asin);
 
   // copy ASIN
   try {
@@ -314,7 +381,7 @@ chrome.runtime.onMessage.addListener(function(msg) {
       updateProductBlocks();
     break;
 
-    case 'options':
+    case 'content_script_options':
       options = msg.payload.options;
 
       updateProductBlocks();
@@ -331,41 +398,39 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
 // update all product blocks on page
 function updateProductBlocks() {
-  for (const asin in asinElems) {
-    updateProductBlock(asin);
+  for (const product of products) {
+    updateProductBlock(product);
   }
 }
 
 
 
 
-function updateProductBlock(asin) {
-  const elems = asinElems[asin];
-  for (let i = 0; i < elems.copyImages.length; ++i) {
-    const isAsinCopied = asins.includes(asin);
-    const productImage = elems.productImages[i];
-    const isSponsoredASIN = sponsoredProductImages.includes(productImage);
+function updateProductBlock(product) {
+  const isAsinCopied = asins.includes(product.asin);
 
-    elems.copyImages[i].src = isAsinCopied ? successImageURL : copyImageURL;
+  // product with copied ASIN?
+  product.copyAsinImage.src = isAsinCopied ? successImageURL : copyImageURL;
 
-    // highlight product image with(without) copied ASIN
-    let borderColor = 'transparent';
-    if (isAsinCopied && options.isHighlightCopiedProducts) {
-      borderColor = PRODUCT_WITH_COPIED_ASIN_IMAGE_BORDER_COLOR;
-    }
-    else if (!isAsinCopied && options.isHighlightNotCopiedProducts) {
-      borderColor = PRODUCT_WITH_NOT_COPIED_ASIN_IMAGE_BORDER_COLOR;
-    }
-    productImage.style.borderColor = borderColor;
+  // highlight product image with(without) copied ASIN
+  let borderColor = 'transparent';
+  if (isAsinCopied && options.isHighlightCopiedProducts) {
+    borderColor = PRODUCT_WITH_COPIED_ASIN_IMAGE_BORDER_COLOR;
+  }
+  else if (!isAsinCopied && options.isHighlightNotCopiedProducts) {
+    borderColor = PRODUCT_WITH_NOT_COPIED_ASIN_IMAGE_BORDER_COLOR;
+  }
+  product.image.style.borderColor = borderColor;
 
-    // highlight sponsored product image
-    productImage.style.outline = '';
-    if (options.isHighlightSponsoredProducts && isSponsoredASIN) {
-      productImage.style.outline = SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE;
-    }
+  // highlight sponsored product image
+  product.image.style.outline = (options.isHighlightSponsoredProducts && product.isSponsored) ? SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE : '';
 
-    // hide sponsored or copied product
-    productImage.style.visibility =
-      ((options.isHideSponsoredProducts && isSponsoredASIN) || (options.isHideCopiedProducts && isAsinCopied)) ? 'hidden' : '';
+  // hide sponsored or copied product
+  product.image.style.visibility =
+    ((options.isHideSponsoredProducts && product.isSponsored) || (options.isHideCopiedProducts && isAsinCopied)) ? 'hidden' : '';
+
+  // show product position?
+  if (isSRP) {
+    product.copyAsinImage.nextElementSibling.style.display = options.isShowProductPositions ? '' : 'none';
   }
 }
