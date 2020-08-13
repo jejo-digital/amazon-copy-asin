@@ -94,7 +94,7 @@ document.querySelector('#obtainBsrs').addEventListener('click', function() {
       }
 
       // scrape BSR from page text
-      let bsr = html.match(/(?:SalesRank|productDetails_detailBullets_sections1).+?([\d.,]+)[^>]+<a href=['"]\/gp\/bestsellers/s)?.[1];
+      let bsr = html.match(/>[^>]+\(<a href=['"]\/gp\/bestsellers/s)?.[0];
       l(bsr);
       if (bsr === undefined) {
         if (html.includes('captcha')) {
@@ -108,7 +108,7 @@ document.querySelector('#obtainBsrs').addEventListener('click', function() {
         return;
       }
 
-      bsr = bsr.replace(/[.,]/, '');
+      bsr = bsr.replace(/\D/g, '');
       l(bsr);
       bsr = Number.parseInt(bsr);
 
