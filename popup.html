@@ -7,17 +7,18 @@
     <script src="const.js"></script>
     <script src="misc.js"></script>
     <script src="default options.js"></script>
-    <script src="../categories.js"></script>
-    <script src="../getCategoryBadgeHTML.js"></script>
+    <script src="categories.js"></script>
+    <script src="getCategoryBadgeHTML.js"></script>
+    <script src="popup/const.js"></script>
+    <script src="popup/misc.js"></script>
 
     <script src="popup/lib/jquery-3.5.1.js"></script>
     <script src="popup/lib/bootstrap.js"></script>
 
-    <script defer src="popup/misc.js"></script>
-    <script defer src="popup/asins.js"></script>
+    <script defer src="popup/main.js"></script>
     <script defer src="popup/edit.js"></script>
     <script defer src="popup/open.js"></script>
-    <script defer src="popup/sort.js"></script>
+    <script defer src="popup/bsr.js"></script>
     <script defer src="popup/copy.js"></script>
     <script defer src="popup/options.js"></script>
 
@@ -25,7 +26,7 @@
 
     <style>
       body {
-        min-width: 700px;
+        min-width: 760px;
       }
 
       input[type=number] {
@@ -35,7 +36,7 @@
   </head>
   <body class="m-2">
     <section class="d-flex">
-      <div class="mr-3">
+      <div class="mr-2">
         <h5>Marketplaces</h5>
         <table id="marketplaces" class="table table-sm table-bordered table-hover">
           <tbody>
@@ -43,22 +44,24 @@
         </table>
       </div>
 
-      <div class="mr-3">
+      <div class="mr-2">
         <h5>Categories</h5>
         <table id="categories" class="table table-sm table-bordered table-hover">
           <tbody data-index="0" class="text-uppercase">
             <tr>
               <td>
-                all
+                <span style="padding-left: 15px;">
+                  &nbsp;
+                  all
+                </span>
               </td>
             </tr>
           </tbody>
-          <tbody data-index="1" class="text-capitalize">
-          </tbody>
+          <tbody data-index="1" class="text-capitalize"></tbody>
         </table>
       </div>
 
-      <div class="d-flex flex-column mr-3">
+      <div class="d-flex flex-column mr-2">
         <h5>ASINs</h5>
         <table id="asins" class="table table-sm table-bordered">
           <thead>
@@ -67,8 +70,7 @@
               <th>BSR</th>
             </tr>
           </thead>
-          <tbody>
-          </tbody>
+          <tbody></tbody>
         </table>
       </div>
 
@@ -99,7 +101,7 @@
           <hr />
 
           <div class="form-check">
-            <label class="form-check-label">
+            <label class="form-check-label" title="Also hides pseudo-sponsored products">
               <input class="form-check-input" type="checkbox" id="isHideSponsoredProducts">
               Hide sponsored products
             </label>
@@ -135,14 +137,27 @@
 
         <hr />
 
-        <fieldset class="btn-group-vertical" disabled>
-          <input type="button" id="edit" class="btn btn-primary btn-sm" value="Edit..." />
-          <input type="button" id="obtainBsrs" class="btn btn-primary btn-sm" value="Sort by BSR..." />
-          <input type="button" id="copyTop" class="btn btn-primary btn-sm" value="Copy top " />
-          <input type="button" id="openSelected" class="btn btn-primary btn-sm" value="Open selected" />
-          <input type="button" id="copyCommaSeparated" class="btn btn-primary btn-sm" value="Copy comma separated" />
-        </fieldset>
-        <input type="button" id="clearAllAsins" class="btn btn-sm btn-danger" value="Clear all ASINs" />
+        <div class="d-flex">
+          <fieldset class="d-flex mr-1" disabled>
+            <div class="btn-group-vertical mb-1">
+              <input type="button" id="edit" class="btn btn-primary btn-sm" value="Edit" />
+              <input type="button" id="obtainBsrs" class="btn btn-primary btn-sm" value="Sort by BSR" />
+            </div>
+            <div class="btn-group-vertical mb-1">
+              <input type="button" id="copyTop" class="btn btn-primary btn-sm" value="Copy top " />
+              <input type="button" id="copyCommaSeparated" class="btn btn-primary btn-sm" value="Copy comma separated" />
+              <input type="button" id="copyWithBsr" class="btn btn-primary btn-sm" value="Copy with BSR" />
+            </div>
+            <div class="btn-group-vertical">
+              <input type="button" id="openTop" class="btn btn-primary btn-sm" value="Open top " />
+              <input type="button" id="openSelected" class="btn btn-primary btn-sm" value="Open selected" />
+            </div>
+          </fieldset>
+          <div class="btn-group-vertical align-self-start">
+            <input type="button" id="clearAllAsins" class="btn btn-sm btn-danger" value="Clear all ASINs" />
+            <input type="button" id="clearMarketplaceBsrs" class="btn btn-sm btn-danger" value="Clear marketplace BSRs" disabled />
+          </div>
+        </div>
       </div>
     </section>
 
@@ -212,12 +227,14 @@
       </div>
     </div>
 
-    <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center" style="position: fixed; top: 0; left: 0; right: 0;">
-      <div id="successCopyToast" class="toast text-white bg-success" data-delay="1000" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-body">
-          <span></span>
-          ASINs copied.
-        </div>
+    <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1100;">
+      <div id="successToast" class="toast text-white bg-success" data-delay="2000" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-body"></div>
       </div>
     </div>
 

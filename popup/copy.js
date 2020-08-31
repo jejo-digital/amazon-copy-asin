@@ -1,80 +1,85 @@
 'use strict';
 
-const TOP_ASINS_AMOUNT = 10;
-
-const successCopyToast = document.querySelector('#successCopyToast');
 const copyTopButton = document.querySelector('#copyTop');
+
+copyTopButton.value += TOP_ASINS_AMOUNT;
 
 
 // copy as comma separated
 document.querySelector('#copyCommaSeparated').addEventListener('click', function() {
-  copyAsinsToClipboard(categoryAsins, ',');
+  if (categoryAsins.length === 0) {
+    showAlertDialog(Msg.ASIN_LIST_IS_EMPTY);
+    return;
+  }
+
+  copyAsinsArrayToClipboard(categoryAsins, ',');
 });
 
 
 
 
 // copy top ASINS
-copyTopButton.value += TOP_ASINS_AMOUNT;
-copyTopButton.addEventListener('click', function() {
-  const currBsrs = bsrs[selectedMarketplace];
-  if (currBsrs === undefined) {
-    showAlertDialog('No BSR data for marketplace.');
-    return;
+copyTopButton.addEventListener('click', async function() {
+  try {
+    const result = await obtainAndSaveBsrs();
+    l('resolve', result);
+  }
+  catch(err) {
+    l('reject', err);
+
+    if (err === Msg.CANCELLED_BY_USER) {
+      return;
+    }
+
+    if (err !== Msg.ALL_BSRS_ALREADY_OBTAINED) {
+      showAlertDialog(err);
+      return;
+    }
   }
 
-  const asinsToCopy = new Map();
-  for (let i = 0; i < categoryAsins.length; ++i) {
-    const row = asinsTableBody.rows[i];
-
-    if (asinsToCopy.size === TOP_ASINS_AMOUNT) {
-      // enough ASINs
-      break;
-    }
-
-    const asin = categoryAsins[i];
-    const bsr = currBsrs[asin];
-    l(asin, bsr);
-
-    if (bsr === undefined) {
-      // we reached group of ASINs in the end that don't have BSR, no need to go further
-      break;
-    }
-
-    if (asinsToCopy.has(bsr)) {
-      // skip ASIN with not unique BSR
-      row.classList.add('bg-warning');
-      continue;
-    }
-
-    // store ASIN with unique BSR
-    row.classList.add('bg-success');
-    asinsToCopy.set(bsr, asin);
-  }
-
-  l(asinsToCopy);
-  const arrayOfAsinsToCopy = [...asinsToCopy.values()];
-  l(arrayOfAsinsToCopy);
-  copyAsinsToClipboard(arrayOfAsinsToCopy, EOL);
+  copyAsinsArrayToClipboard(getTopAsins(), EOL);
 });
 
 
 
 
-async function copyAsinsToClipboard(asins, separator) {
-  if (asins.length === 0) {
-    showAlertDialog('Nothing to copy.');
+// copy ASINs with BSRs
+document.querySelector('#copyWithBsr').addEventListener('click', function() {
+  if (categoryAsins.length === 0) {
+    showAlertDialog(Msg.ASIN_LIST_IS_EMPTY);
     return;
   }
 
-  const asinsText = asins.join(separator);
+  const asinsWithBsrs = categoryAsins.map(function(asin) {
+    let bsr = asins[asin].bsr;
+    if (bsr === undefined) {
+      // bsr obtaining was never performed
+      bsr = '';
+    }
+    else if (bsr === null) {
+      // bsr obtained, but was absent
+      bsr = 'absent';
+    }
+
+    return asin + ',' + bsr;
+  });
+
+  copyAsinsArrayToClipboard(asinsWithBsrs, EOL);
+});
+
+
+
+
+async function copyArrayToClipboard(array, itemName, separator) {
+  l('copyArrayToClipboard()', array, itemName, JSON.stringify(separator).slice(1, -1));
+
   try {
-    await navigator.clipboard.writeText(asinsText);
-  
-    successCopyToast.querySelector('span').textContent = asins.length;
-    $(successCopyToast).toast('show');
+    await navigator.clipboard.writeText(array.join(separator));
+
+    showSuccessToast(`${array.length} ${itemName} copied.`);
   }
   catch(err) {
     showAlertDialog('Copy error: ' + err.message);
   }
 }
+const copyAsinsArrayToClipboard = (array, separator) => copyArrayToClipboard(array, 'ASINs', separator);

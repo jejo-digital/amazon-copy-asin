@@ -5,9 +5,9 @@ let selectedMarketplace;
 
 let selectedCategory;
 
-let marketplaceAsins;
+// asins for selected marketplace
+let asins = {};
 let categoryAsins;
-let bsrs = {};
 
 
 const marketplacesTableBody = document.querySelector('#marketplaces tbody');
@@ -25,6 +25,8 @@ const alertDialogText = document.querySelector('#alertDialog h6');
 
 const confirmDialog = document.querySelector('#confirmDialog');
 const confirmDialogText = document.querySelector('#confirmDialog h6');
+
+const successToast = document.querySelector('#successToast');
 
 const manifest = chrome.runtime.getManifest();
 
@@ -128,18 +130,19 @@ else {
 
 const port = chrome.runtime.connect();
 port.onMessage.addListener(function(msg) {
-  cg('port.onMessage()', msg);
+  n(); l('port.onMessage()', msg);
 
   switch (msg.id) {
-    case 'asins_for_marketplace':
+    case 'marketplace_asins':
       // close possible opened Edit dialog
       $(document.querySelector('#asinsDialog.show')).modal('hide');
 
-      marketplaceAsins = msg.payload.asins ?? {};
+      asins = msg.payload.asins ?? {};
       filterAsinsByCategory();
-      sortAsinsByBSR();
-      showAsins();
+      sortCategoryAsinsByBSR();
+      showCategoryAsins();
       asinButtonsGroup.disabled = false;
+      clearMarketplaceBsrsButton.disabled = false;
     break;
 
     default:
@@ -152,7 +155,7 @@ port.onMessage.addListener(function(msg) {
 
 
 function filterAsinsByCategory() {
-  let entries = Object.entries(marketplaceAsins);
+  let entries = Object.entries(asins);
   if (selectedCategory !== '') {
     entries = entries.filter(([, asinData]) => asinData.categories?.[selectedCategory] ?? false);
   }
@@ -162,19 +165,35 @@ function filterAsinsByCategory() {
 
 
 
-function showAsins() {
-  l('showAsins()', marketplaceAsins);
+function showCategoryAsins() {
+  l('showCategoryAsins()', categoryAsins);
 
-  asinsTableBody.innerHTML = categoryAsins.map(asin => `
-    <tr>
-      <td>
-        ${marketplaceAsins[asin].isCopied ? asin : `<s>${asin}</s>`}
-      </td>
-      <td>
-        ${bsrs[selectedMarketplace]?.[asin] ?? ''}
-      </td>
-    </tr>
-  `).join('');
+  asinsTableBody.innerHTML = categoryAsins.map(function(asin) {
+    let bsr = asins[asin].bsr;
+    if (bsr === undefined) {
+      // bsr obtaining was never performed
+      bsr = '';
+    }
+    else if (bsr === null) {
+      // bsr obtained, but was absent
+      bsr = `<div class="text-center" title="BSR value absent on product page">\u2717</div>`;
+    }
+    else if (typeof bsr === 'string') {
+      // bsr obtained with error
+      bsr = `<div class="text-center" title="${bsr}">\u26A0</div>`;
+    }
+
+    return `
+      <tr>
+        <td>
+          ${asins[asin].isCopied ? asin : `<s>${asin}</s>`}
+        </td>
+        <td>
+          ${bsr}
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 
@@ -193,7 +212,7 @@ marketplacesTableBody.addEventListener('click', function({target}) {
 
   // request ASINs from BG page
   port.postMessage({
-    id: 'get_asins_for_marketplace',
+    id: 'get_marketplace_asins',
     payload: {
       marketplace: selectedMarketplace,
     },
@@ -215,8 +234,8 @@ categoriesTable.addEventListener('click', function({target}) {
   l(selectedCategory);
 
   filterAsinsByCategory();
-  sortAsinsByBSR();
-  showAsins();
+  sortCategoryAsinsByBSR();
+  showCategoryAsins();
 });
 
 
@@ -224,13 +243,14 @@ categoriesTable.addEventListener('click', function({target}) {
 
 // return body and row indices of clicked row, or null if row is already selected
 function getItemInfoFromElem(elem) {
+  // this check is required because:
   // 1. elem is <tbody> after selecting several rows with mouse
-  // 2. <span> may exists in row
+  // 2. <span> may exist in row
   if (!(elem.nodeName === 'TD' || elem.nodeName === 'SPAN')) {
     return null;
   }
 
-  const tableRow = elem.parentElement;
+  const tableRow = elem.closest('tr');
   if (tableRow.classList.contains('table-active')) {
     // this row is already selected
     return null;
@@ -243,9 +263,35 @@ function getItemInfoFromElem(elem) {
   tableRow.classList.add('table-active');
 
   return {
-    bodyIndex: Number(tableBody.dataset.index),
+    bodyIndex: Number(tableBody.dataset.index) || 0,
     rowIndex: tableRow.sectionRowIndex,
   };
+}
+
+
+
+
+document.querySelector('#clearAllAsins').addEventListener('click', async function() {
+  if (await showConfirmDialog('ALL ASINs in ALL marketplaces will be deleted. Proceed?')) {
+    return;
+  }
+
+  port.postMessage({
+    id: 'clear_all_asins',
+  });
+});
+
+
+
+
+function saveAsins() {
+  port.postMessage({
+    id: 'set_marketplace_asins',
+    payload: {
+      marketplace: selectedMarketplace,
+      asins,
+    },
+  });
 }
 
 
@@ -254,12 +300,11 @@ function getItemInfoFromElem(elem) {
 // dev
 Object.defineProperty(window, 's', {
   get() {
-    cg('current situation');
-    l('marketplaceAsins', marketplaceAsins);
-    l('categoryAsins', categoryAsins);
-    l('bsrs', bsrs);
+    console.group('current situation');
     l('selectedMarketplace', selectedMarketplace);
     l('selectedCategory', selectedCategory);
+    l('asins', asins);
+    l('categoryAsins', categoryAsins);
     l('options', options);
     console.groupEnd();
   },

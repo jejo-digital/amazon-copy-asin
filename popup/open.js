@@ -1,6 +1,11 @@
 'use strict';
 
+const openTopButton = document.querySelector('#openTop');
 
+openTopButton.value += TOP_ASINS_AMOUNT;
+
+
+// open selected
 document.querySelector('#openSelected').addEventListener('click', function() {
   const selection = document.getSelection();
   if (selection.toString().trim() === '') {
@@ -33,8 +38,8 @@ document.querySelector('#openSelected').addEventListener('click', function() {
   }
   else {
     // selection of several rows
-    const startRow = range.startContainer.parentElement.parentElement;
-    const endRow = range.endContainer.parentElement.parentElement;
+    const startRow = range.startContainer.parentElement.closest('tr');
+    const endRow = range.endContainer.parentElement.closest('tr');
     l(startRow, endRow);
     for (let rowIndex = startRow.sectionRowIndex; rowIndex <= endRow.sectionRowIndex; ++rowIndex) {
       selectedAsins.push(categoryAsins[rowIndex]);
@@ -42,8 +47,42 @@ document.querySelector('#openSelected').addEventListener('click', function() {
   }
   l(selectedAsins);
 
-  // create tabs with selected ASINs
-  for (const asin of selectedAsins) {
-    chrome.tabs.create({url: getAsinUrlInSelectedMarketplace(asin), active: false});
-  }
+  createAsinTabs(selectedAsins);
 });
+
+
+
+
+// open top
+openTopButton.addEventListener('click', async function() {
+  try {
+    const result = await obtainAndSaveBsrs();
+    l('resolve', result);
+  }
+  catch(err) {
+    l('reject', err);
+
+    if (err === Msg.CANCELLED_BY_USER) {
+      return;
+    }
+
+    if (err !== Msg.ALL_BSRS_ALREADY_OBTAINED) {
+      showAlertDialog(err);
+      return;
+    }
+  }
+
+  createAsinTabs(getTopAsins());
+});
+
+
+
+
+function createAsinTabs(asins) {
+  for (const asin of asins) {
+    chrome.tabs.create({
+      url: getAsinUrlInSelectedMarketplace(asin),
+      active: false,
+    });
+  }
+}

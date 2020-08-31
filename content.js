@@ -28,13 +28,15 @@ const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
 ];
 
 
-// info about products on page
-const products = [];
+// ASINs data for page marketplace
+let asins;
+
+let asinsThatHaveNotes;
 
 let options;
 
-// copied ASINs for page marketplace
-let asins;
+// info about products on page
+const products = [];
 
 // for showing product positions on page
 let organicProductNumber = 1;
@@ -44,27 +46,92 @@ let letterForCurrentGroupOfSponsoredProducts;
 
 let asin; // just temp value
 
-// get ASINs
-chrome.runtime.sendMessage({
-   id: 'get_asins_for_marketplace',
-}, function(newAsins) {
-  l(newAsins);
+let asinDialog;
+let asinDialogTextarea;
 
-  asins = newAsins ?? {};
 
+// get some data from BG page
+const asinsPromise = new Promise(function(resolve) {
+  chrome.runtime.sendMessage({
+     id: 'get_marketplace_asins',
+  }, function(_asins) {
+    l('on get_marketplace_asins', _asins);
+    asins = _asins ?? {};
+    resolve();
+  });
+});
+const notesPromise = new Promise(function(resolve) {
+  chrome.runtime.sendMessage({
+     id: 'get_asins_that_have_notes',
+  }, function(_asinsThatHaveNotes) {
+    l('on get_asins_that_have_notes', _asinsThatHaveNotes);
+    asinsThatHaveNotes = _asinsThatHaveNotes;
+    resolve();
+  });
+});
+const optionsPromise = new Promise(function(resolve) {
   chrome.storage.sync.get({
     options: DEFAULT_OPTIONS,
   }, function(storage) {
     l('storage.get()', storage);
-
     options = storage.options;
-
-    // process product blocks already on page
-    document.querySelectorAll(`
-      .s-result-list ${PRODUCT_BLOCK_SELECTOR},
-      li.a-carousel-card:not(.vse-video-card) > div
-    `).forEach(processProductBlock);
+    resolve();
   });
+});
+
+// wait for all
+const dclPromise = new Promise(function(resolve) {
+  document.addEventListener('DOMContentLoaded', () => resolve());
+});
+Promise.all([asinsPromise, notesPromise, optionsPromise, dclPromise]).then(function() {
+  l('Promise.all');
+
+  // process product blocks already on page
+  document.querySelectorAll(`
+    .s-result-list ${PRODUCT_BLOCK_SELECTOR},
+    li.a-carousel-card:not(.vse-video-card) > div
+  `).forEach(processProductBlock);
+
+  toggleVideoAdImages();
+
+
+  // prepare dialog
+  document.body.insertAdjacentHTML('beforeEnd', DIALOG_HTML);
+  asinDialog = document.body.lastElementChild;
+  asinDialogTextarea = asinDialog.querySelector('textarea');
+  asinDialog.querySelector('form').addEventListener('submit', onDialogSubmit);
+
+
+  // wait for new products
+  new MutationObserver(function(mutationRecords) {
+    n(); l('observer fired');
+
+    for (const mutationRecord of mutationRecords) {
+      n(); l(mutationRecord);
+
+      const addedNode = mutationRecord.addedNodes[0];
+      if (addedNode !== undefined && addedNode.className === UNIQUE_STRING) {
+        l('skip our own recently added button');
+        return;
+      }
+
+      const target = mutationRecord.target;
+      if (target.classList.contains('a-carousel-card') &&
+          !target.classList.contains('a-carousel-card-empty') &&
+          target.children.length > 0) {
+        processProductBlock(target);
+      }
+      else {
+        if (target.classList.contains('a-carousel')) {
+          l('new carousel', target);
+          Array.from(target.children).forEach(processProductBlock);
+        }
+        else {
+          l('unused mutation record');
+        }
+      }
+    }
+  }).observe(document.body, {childList: true, subtree: true});
 });
 
 
@@ -76,13 +143,17 @@ const isSRP = location.pathname === '/s';
 const toolbarTemplate = document.createElement('span');
 toolbarTemplate.className = UNIQUE_STRING;
 toolbarTemplate.style = `
+  display: inline-flex;
   position: absolute;
   margin-left: 3px;
   z-index: 9;
 `;
 toolbarTemplate.innerHTML = `
-  <img width="25" height="25" title="Can't find ASIN" data-button-id="copy" src="${chrome.runtime.getURL('img/question.svg')}" style="cursor: not-allowed;" />
-  <img width="25" height="25" data-button-id="props" src="${chrome.runtime.getURL('img/menu.svg')}" style="
+  <img width="25" height="25" title="Can't find ASIN" data-button-id="copy" src="${chrome.runtime.getURL('img/question.svg')}" style="
+    min-width: 25px;
+    cursor: not-allowed;
+  " />
+  <img width="25" height="25" data-button-id="props" style="
     cursor: pointer;
     display: none;
   " />
@@ -105,56 +176,60 @@ toolbarTemplate.innerHTML = `
 
 const copyImageURL = chrome.runtime.getURL('img/copy.svg');
 const successImageURL = chrome.runtime.getURL('img/success.svg');
+const menuImageURL = chrome.runtime.getURL('img/menu.svg');
+const menuWithNotesImageURL = chrome.runtime.getURL('img/notes.svg');
 
 
 // prepare dialog for Categories and Notes
 const DIALOG_HTML = `
-  <dialog id="${UNIQUE_STRING}">
+  <dialog id="${UNIQUE_STRING}" style="
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 300px;">
     <input type="button" style="
       background-color: transparent;
       position: absolute;
       top: 2px;
-      left: 0;
       border: none;
       font-size: 23px;
-    " class="dialog-cancel" value="&times;">
+      ${/mac/i.test(navigator.userAgent) ? 'left' : 'right'}: 0;"
+      class="dialog-cancel" value="&times;" />
     <form method="dialog" style="margin-bottom: 0;">
       <header style="text-align: center;">
         ASIN <span></span> 
       </header>
       <main style="
         margin-top: 10px;
-        margin-bottom: 10px;
-      ">
-        </div>
-          Categories:
-          <table style="
-            margin-left: 10px;
-            margin-bottom: 10px;
-          ">
-            <tbody style="text-transform: capitalize;">
-              ${CATEGORIES.map(category => `
-                <tr>
-                  <td>
-                    <label>
-                      <input type="checkbox" data-category="${category}" />
-                      ${getCategoryBadgeHTML(category, `
-                        display: inline-block;
-                        vertical-align: middle;
-                      `)}
-                      ${category}
-                    </label>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+        margin-bottom: 10px;">
+        Categories:
+        <div style="
+          margin-left: 10px;
+          margin-bottom: 10px;
+          display: flex;
+          flex-direction: column;
+          height: 65px;
+          flex-wrap: wrap;
+          text-transform: capitalize;">
+          ${CATEGORIES.map(category => `
+            <label>
+              <input type="checkbox" data-category="${category}" />
+              ${getCategoryBadgeHTML(category, `
+                display: inline-block;
+                vertical-align: middle;
+              `)}
+              ${category}
+            </label>
+          `).join('')}
         </div>
         <div>
           <label style="font-weight: normal;">
             Notes:
             <br />
-            <textarea style="margin-left: 10px; width: auto;" autofocus></textarea>
+            <textarea style="
+              margin-left: 10px;
+              width: 255px;
+              height: 139px;" autofocus></textarea>
           </label>
         </div>
       </main>
@@ -165,55 +240,18 @@ const DIALOG_HTML = `
     </form>
   </dialog>
 `;
-document.body.insertAdjacentHTML('beforeEnd', DIALOG_HTML);
-const asinDialog = document.body.lastElementChild;
-const asinDialogTextarea = asinDialog.querySelector('textarea');
-
-
-
-
-// wait for new products
-new MutationObserver(function(mutationRecords) {
-  cg('observer fired');
-
-  for (const mutationRecord of mutationRecords) {
-    l(mutationRecord);
-
-    const addedNode = mutationRecord.addedNodes[0];
-    if (addedNode !== undefined && addedNode.className === UNIQUE_STRING) {
-      l('skip our own recently added button');
-      return;
-    }
-
-    const target = mutationRecord.target;
-    if (target.classList.contains('a-carousel-card') &&
-        !target.classList.contains('a-carousel-card-empty') &&
-        target.children.length > 0) {
-      processProductBlock(target);
-    }
-    else {
-      if (target.classList.contains('a-carousel')) {
-        l('new carousel', target);
-        Array.from(target.children).forEach(processProductBlock);
-      }
-      else {
-        l('unused mutation record');
-      }
-    }
-  }
-}).observe(document.body, {childList: true, subtree: true});
 
 
 
 
 function processProductBlock(productBlock) {
-  cg('processProductBlock()', productBlock);
+  n(); l('processProductBlock()', productBlock);
 
   // hacks for carousel items
   if (productBlock.nodeName === 'LI') {
     productBlock = productBlock.firstElementChild;
     l('adjust 1');
-    if (productBlock.nodeName === 'STYLE') {
+    if (productBlock?.nodeName === 'STYLE') {
       productBlock = productBlock.nextElementSibling;
       l('adjust 2');
     }
@@ -236,7 +274,7 @@ function processProductBlock(productBlock) {
 
     productBlock.style.position = 'relative';
 
-    addUItoBlock(productBlock, productBlock, 'beforeEnd')
+    prepareProductBlock(productBlock, productBlock, 'beforeEnd')
 
     productBlock.lastElementChild.style.right = '0';
     productBlock.lastElementChild.style.bottom = '0';
@@ -277,13 +315,13 @@ function processProductBlock(productBlock) {
   // mark block
   productBlock.classList.add(UNIQUE_STRING);
 
-  addUItoBlock(productBlock, el, 'afterEnd');
+  prepareProductBlock(productBlock, el, 'afterEnd');
 }
 
 
 
 
-function addUItoBlock(productBlock, insertToolbarElem, position) {
+function prepareProductBlock(productBlock, insertToolbarElem, position) {
   const toolbar = toolbarTemplate.cloneNode(true);
   insertToolbarElem.insertAdjacentElement(position, toolbar);
 
@@ -343,17 +381,20 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
 
   // properties button
   const propsImage = copyImage.nextElementSibling;
-  propsImage.title = 'Properties of ASIN ' + asin + '...';
+  propsImage.title = 'Properties of ASIN ' + asin;
   propsImage.style.display = '';
 
   // store info about product in current block
   const product = {
     asin,
-    // store reference to 'copy ASIN' button image
-    copyAsinImage: copyImage,
+    // store references to toolbar elements
+    copyAsinImage: toolbar.children[0],
+    propertiesImage: toolbar.children[1],
+    positionSpan: toolbar.children[2],
+    categoriesSpan: toolbar.children[3],
   };
 
-  // it may not be the image itself, but also DIV around or near it. for simplicity we just call it image.
+  // it may not be the image itself, but also DIV around or near it. for simplicity we just call it 'image'.
   let productImage = productBlock.querySelector('img').parentElement;
   if (productImage.nodeName === 'SPAN') {
     // sponsored product in the very top of page
@@ -365,8 +406,14 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
       productImage = productImage.firstElementChild;
     }
     else {
-      // item in the top of page like in 'Lower Priced Items to Consider' block
-      productImage = productImage.parentElement;
+      if(productBlock.classList.contains('rvi-item')) {
+        // 'Your Browsing History' carousel item
+        productImage = productImage.firstElementChild;
+      }
+      else {
+        // item in the top of page like in 'Lower Priced Items to Consider' block
+        productImage = productImage.parentElement;
+      }
     }
   }
   productImage.style.border = PRODUCT_IMAGE_BORDER_STYLE;
@@ -404,15 +451,20 @@ function addUItoBlock(productBlock, insertToolbarElem, position) {
     else {
       isNeedNewGroupOfSponsoredProducts = true;
 
-      // skip advices
+      // skip pseudo-sponsored products
       if (productBlock.closest('[cel_widget_id=MAIN-SHOPPING_ADVISER]') === null) {
         positionSpan.textContent = organicProductNumber++;
         positionSpan.style.color = ORGANIC_PRODUCT_NUMBER_COLOR;
       }
+      else {
+        product.isPseudoSponsored = true;
+      }
     }
   }
   products.push(product);
-  updateProductBlock(product);
+  updateMainPartsOfProductBlock(product);
+  updateNotesPartsOfProductBlock(product);
+  updateCategoryPartsOfProductBlock(product);
 }
 
 
@@ -460,7 +512,7 @@ document.addEventListener('click', async function({target: elem}) {
 
       // send info about new ASIN to BG page
       chrome.runtime.sendMessage({
-         id: 'set_asin_data',
+         id: 'set_marketplace_asin_data',
          payload: {
            asin,
            data: {
@@ -488,7 +540,7 @@ document.addEventListener('click', async function({target: elem}) {
            asin,
          },
       }, function(asinNotes) {
-        l( asinNotes);
+        l(asinNotes);
 
         // show notes (undefined will be transfered as null that will result in empty string)
         asinDialogTextarea.value = asinNotes;
@@ -502,15 +554,15 @@ document.addEventListener('click', async function({target: elem}) {
 
 
 // save ASIN properties
-asinDialog.querySelector('form').addEventListener('submit', function() {
-  // get categories
+function onDialogSubmit() {
+  // collect categories from dialog
   const categories = Array.from(asinDialog.querySelectorAll('input[data-category]')).filter(inp => inp.checked).reduce(function(acc, inp) {
     acc[inp.dataset.category] = true;
     return acc;
   }, {});
   // save categories
   chrome.runtime.sendMessage({
-     id: 'set_asin_data',
+     id: 'set_marketplace_asin_data',
      payload: {
        asin,
        data: {
@@ -528,29 +580,47 @@ asinDialog.querySelector('form').addEventListener('submit', function() {
        notes,
      },
   });
-});
+}
+
+
+
+
+function toggleVideoAdImages() {
+  for(const img of document.querySelectorAll('.sbv-product-container img')) {
+    img.style.visibility = options.isHideSponsoredProducts ? 'hidden' : '';
+  };
+}
 
 
 
 
 chrome.runtime.onMessage.addListener(function(msg) {
-  cg('runtime.onMessage()');
-  l(msg);
+  n(); l('runtime.onMessage()', msg);
 
   switch (msg.id) {
-    case 'asins_for_marketplace':
+    case 'marketplace_asins':
       // store new ASINs
       asins = msg.payload.asins ?? {};
 
       asinDialog.close();
 
-      updateProductBlocks();
+      updateMainPartsOfAllProductBlocks();
+      updateNotesPartsOfAllProductBlocks();
+      updateCategoryPartsOfAllProductBlocks();
+    break;
+
+    case 'asins_that_have_notes':
+      asinsThatHaveNotes = msg.payload.asins;
+
+      asinDialog.close();
+
+      updateNotesPartsOfAllProductBlocks();
     break;
 
     case 'content_script_options':
       options = msg.payload.options;
 
-      updateProductBlocks();
+      updateMainPartsOfAllProductBlocks();
     break;
 
     default:
@@ -562,21 +632,30 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
 
 
-// update all product blocks on page
-function updateProductBlocks() {
+function updateMainPartsOfAllProductBlocks() {
   for (const product of products) {
-    updateProductBlock(product);
+    updateMainPartsOfProductBlock(product);
+  }
+  toggleVideoAdImages();
+}
+
+function updateNotesPartsOfAllProductBlocks() {
+  for (const product of products) {
+    updateNotesPartsOfProductBlock(product);
+  }
+}
+
+function updateCategoryPartsOfAllProductBlocks() {
+  for (const product of products) {
+    updateCategoryPartsOfProductBlock(product);
   }
 }
 
 
 
 
-function updateProductBlock(product) {
+function updateMainPartsOfProductBlock(product) {
   const isAsinCopied = !!(asins[product.asin]?.isCopied);
-
-  // product with copied ASIN?
-  product.copyAsinImage.src = isAsinCopied ? successImageURL : copyImageURL;
 
   // highlight product image with(without) copied ASIN
   let borderColor = 'transparent';
@@ -591,15 +670,33 @@ function updateProductBlock(product) {
   // highlight sponsored product image
   product.image.style.outline = (options.isHighlightSponsoredProducts && product.isSponsored) ? SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE : '';
 
-  // hide sponsored or copied product
+  // hide sponsored or pseudo-sponsored or copied product
   product.image.style.visibility =
-    ((options.isHideSponsoredProducts && product.isSponsored) || (options.isHideCopiedProducts && isAsinCopied)) ? 'hidden' : '';
+    ((options.isHideSponsoredProducts && (product.isSponsored || product.isPseudoSponsored))
+     ||
+     (options.isHideCopiedProducts && isAsinCopied)) ? 'hidden' : '';
 
-  // show product position?
+  // show 'copy' icon depending on whether ASIN is copied
+  product.copyAsinImage.src = isAsinCopied ? successImageURL : copyImageURL;
+
+  // show product position
   if (isSRP) {
-    product.copyAsinImage.nextElementSibling.nextElementSibling.style.display = options.isShowProductPositions ? '' : 'none';
+    product.positionSpan.style.display = options.isShowProductPositions ? '' : 'none';
   }
+}
 
+
+
+
+function updateNotesPartsOfProductBlock(product) {
+  // show 'properties' icon depending on whether ASIN has notes
+  product.propertiesImage.src = asinsThatHaveNotes.includes(product.asin) ? menuWithNotesImageURL : menuImageURL;
+}
+
+
+
+
+function updateCategoryPartsOfProductBlock(product) {
   // show ASIN categories
   const categories = asins[product.asin]?.categories;
   let categoriesStr;
@@ -612,5 +709,5 @@ function updateProductBlock(product) {
       margin-bottom: 1px;
     `)).join('');
   }
-  product.copyAsinImage.nextElementSibling.nextElementSibling.nextElementSibling.innerHTML = categoriesStr;
+  product.categoriesSpan.innerHTML = categoriesStr;
 }

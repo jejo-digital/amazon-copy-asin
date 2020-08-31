@@ -98,8 +98,7 @@ bsrRequestsIntervalInput.addEventListener('change', function({target: input}) {
 
 
 chrome.runtime.onMessage.addListener(function(msg) {
-  cg('runtime.onMessage()');
-  l(msg);
+  n(); l('runtime.onMessage()', msg);
 
   switch (msg.id) {
     case 'content_script_options':
@@ -115,16 +114,5 @@ chrome.runtime.onMessage.addListener(function(msg) {
     default:
       l('message not processed');
     break;
-  }
-});
-
-
-
-
-document.querySelector('#clearAllAsins').addEventListener('click', async function() {
-  if (await showConfirmDialog('ALL ASINs in ALL marketplaces will be deleted. Proceed?')) {
-    port.postMessage({
-      id: 'clear_all_asins',
-    });
   }
 });

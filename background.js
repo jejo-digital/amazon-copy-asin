@@ -1,46 +1,48 @@
 'use strict';
 
+// asins for all marketplaces
 let asins;
+// all notes
 let notes;
+//let bsrs;
 
-// site tabs where content script started
-const siteTabs = new Map();
+// Amazon tabs where content script started
+const amazonTabs = new Map();
 
-// popups & tabs with popup page
+// popups & tabs with popup page(just 'popups' for simplicity)
 const popupViews = new Map();
 
 
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
-  cg('runtime.onMessage()');
-  l(msg, sender);
+  n(); l('runtime.onMessage()', msg, sender);
 
   switch(msg.id) {
     // msg from content script
-    case 'get_asins_for_marketplace': {
+    case 'get_marketplace_asins': {
       const marketplace = getMarketplaceFromOrigin(sender.origin);
 
       // store tab id and its marketplace
-      siteTabs.set(sender.tab.id, marketplace);
+      amazonTabs.set(sender.tab.id, marketplace);
 
       sendResponse(asins[marketplace]);
     }
     break;
 
-    case 'set_asin_data': {
-      const marketplace = siteTabs.get(sender.tab.id);
+    case 'set_marketplace_asin_data': {
+      const marketplace = amazonTabs.get(sender.tab.id);
       const {asin, data} = msg.payload;
       ensureDbStructure(marketplace, asin);
       Object.assign(asins[marketplace][asin], data);
       saveAsins(function() {
-        updateViews(marketplace);
+        updateViewsWithAsins(marketplace);
       });
     }
     break;
 
     case 'content_script_options':
       const {options} = msg.payload;
-      // send options to site tabs
-      for (const [tabId] of siteTabs) {
+      // send options to Amazon tabs
+      for (const [tabId] of amazonTabs) {
         chrome.tabs.sendMessage(tabId, {
           id: 'content_script_options',
           payload: {
@@ -48,6 +50,11 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
           },
         });
       }
+    break;
+
+    case 'get_asins_that_have_notes': {
+      sendResponse(getAsinsThatHaveNotes());
+    }
     break;
 
     case 'get_asin_notes': {
@@ -65,7 +72,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
         notes[asin] = newNotes;
       }
 
-      chrome.storage.sync.set({notes});
+      chrome.storage.sync.set({notes}, updateAmazonTabsWithNotes);
     }
     break;
 
@@ -99,9 +106,7 @@ function saveAsins(callback) {
 
 
 
-// todo inline
 function ensureDbStructure(marketplace, asin) {
-
   if (asins[marketplace] === undefined) {
     // first data for marketplace
     asins[marketplace] = {};
@@ -117,40 +122,8 @@ function ensureDbStructure(marketplace, asin) {
 
 
 
-// send ASIN data to tabs with site page opened for 'marketplace' parameter. if marketplace parameter is absent - send to all tabs
-function updateViews(marketplace) {
-  l('updateViews()', marketplace);
-
-  // content script tabs
-  for (const [tabId, tabMarketplace] of siteTabs) {
-    if (marketplace === undefined || tabMarketplace === marketplace) {
-      chrome.tabs.sendMessage(tabId, {
-        id: 'asins_for_marketplace',
-        payload: {
-          asins: asins[tabMarketplace],
-        },
-      });
-    }
-  }
-
-  // popups & tabs with popup page
-  for (const [popupPort, popupMarketplace] of popupViews) {
-    if (marketplace === undefined || popupMarketplace === marketplace) {
-      popupPort.postMessage({
-        id: 'asins_for_marketplace',
-        payload: {
-          asins: asins[popupMarketplace],
-        },
-      });
-    }
-  }
-}
-
-
-
-
 chrome.tabs.onRemoved.addListener(function(tabId) {
-  siteTabs.delete(tabId);
+  amazonTabs.delete(tabId);
 });
 
 
@@ -181,16 +154,16 @@ chrome.runtime.onConnect.addListener(function(port) {
   l('runtime.onConnect()', port);
 
   port.onMessage.addListener(function(msg) {
-    cg('port.onMessage()', msg);
+    n(); l('port.onMessage()', msg);
 
     switch(msg.id) {
-      case 'get_asins_for_marketplace': {
+      case 'get_marketplace_asins': {
         const {marketplace} = msg.payload;
         // associate port with its marketplace
         popupViews.set(port, marketplace);
 
         port.postMessage({
-          id: 'asins_for_marketplace',
+          id: 'marketplace_asins',
           payload: {
             asins: asins[marketplace],
           },
@@ -198,18 +171,18 @@ chrome.runtime.onConnect.addListener(function(port) {
       }
       break;
 
-      case 'set_asins_for_marketplace': {
-        const {marketplace} = msg.payload;
-        asins[marketplace] = msg.payload.asins;
+      case 'set_marketplace_asins': {
+        const {marketplace, asins: newAsins} = msg.payload;
+        asins[marketplace] = newAsins;
         saveAsins(function() {
-          updateViews(marketplace);
+          updateViewsWithAsins(marketplace);
         });
       }
       break;
 
       case 'clear_all_asins':
         asins = {};
-        saveAsins(updateViews);
+        saveAsins(updateViewsWithAsins);
       break;
 
       default:
@@ -228,13 +201,69 @@ chrome.runtime.onConnect.addListener(function(port) {
 
 
 
+// send marketplace ASINs to tabs showing data for this marketplace. if marketplace parameter is absent - send to all tabs
+function updateViewsWithAsins(marketplace) {
+  l('updateViewsWithAsins()', marketplace);
+
+  // tabs with Amazon page 
+  for (const [tabId, tabMarketplace] of amazonTabs) {
+    if (marketplace === undefined || tabMarketplace === marketplace) {
+      chrome.tabs.sendMessage(tabId, {
+        id: 'marketplace_asins',
+        payload: {
+          asins: asins[tabMarketplace],
+        },
+      });
+    }
+  }
+
+  // popups
+  for (const [popupPort, popupMarketplace] of popupViews) {
+    if (marketplace === undefined || popupMarketplace === marketplace) {
+      popupPort.postMessage({
+        id: 'marketplace_asins',
+        payload: {
+          asins: asins[popupMarketplace],
+        },
+      });
+    }
+  }
+}
+
+
+
+
+// send ASINs that have notes to Amazon tabs
+function updateAmazonTabsWithNotes() {
+  l('updateAmazonTabsWithNotes()');
+
+  for (const tabId of amazonTabs.keys()) {
+    chrome.tabs.sendMessage(tabId, {
+      id: 'asins_that_have_notes',
+      payload: {
+        asins: getAsinsThatHaveNotes(),
+      },
+    });
+  }
+}
+
+
+
+
+function getAsinsThatHaveNotes() {
+  return Object.keys(notes);
+}
+
+
+
+
 // dev
 Object.defineProperty(window, 's', {
   get() {
-    cg('current situation');
+    console.group('current situation');
     l('asins', asins);
     l('notes', notes);
-    l('siteTabs', siteTabs);
+    l('amazonTabs', amazonTabs);
     l('popupViews', popupViews);
 
     chrome.storage.sync.get(function(items) {
