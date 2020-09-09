@@ -272,7 +272,7 @@ function getItemInfoFromElem(elem) {
 
 
 document.querySelector('#clearAllAsins').addEventListener('click', async function() {
-  if (await showConfirmDialog('ALL ASINs in ALL marketplaces will be deleted. Proceed?')) {
+  if (!await showConfirmDialog('ALL ASINs in ALL marketplaces will be deleted. Proceed?')) {
     return;
   }
 
