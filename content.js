@@ -10,6 +10,8 @@ const ORGANIC_PRODUCT_NUMBER_COLOR = 'lime';
 const SPONSORED_PRODUCT_NUMBER_COLOR = 'red';
 const LETTER_FOR_FIRST_GROUP_OF_SPONSORED_PRODUCTS = 'A';
 
+const MY_PRODUCT_COLOR = 'limegreen';
+
 const UNIQUE_STRING = 'd9735ea58f704800b5c9ae4fcc046b19';
 const PRODUCT_BLOCK_SELECTOR = 'div:not([data-asin=""])[data-asin]';
 const CAROUSEL_VIEWPORT_HEIGHT_CHANGE = 5; // pixels
@@ -32,6 +34,8 @@ const BEFORE_TOOLBAR_ELEMENT_SELECTORS = [
 let asins;
 
 let asinsThatHaveNotes;
+
+let myAsins;
 
 let options;
 
@@ -69,6 +73,15 @@ const notesPromise = new Promise(function(resolve) {
     resolve();
   });
 });
+const myAsinsPromise = new Promise(function(resolve) {
+  chrome.runtime.sendMessage({
+     id: 'get_my_asins',
+  }, function(_myAsins) {
+    l('on get_my_asins', _myAsins);
+    myAsins = _myAsins;
+    resolve();
+  });
+});
 const optionsPromise = new Promise(function(resolve) {
   chrome.storage.sync.get({
     options: DEFAULT_OPTIONS,
@@ -83,8 +96,8 @@ const optionsPromise = new Promise(function(resolve) {
 const dclPromise = new Promise(function(resolve) {
   document.addEventListener('DOMContentLoaded', () => resolve());
 });
-Promise.all([asinsPromise, notesPromise, optionsPromise, dclPromise]).then(function() {
-  l('Promise.all');
+Promise.all([asinsPromise, notesPromise, myAsinsPromise, optionsPromise, dclPromise]).then(function() {
+  l('Promise.all()');
 
   // process product blocks already on page
   document.querySelectorAll(`
@@ -387,7 +400,8 @@ function prepareProductBlock(productBlock, insertToolbarElem, position) {
   // store info about product in current block
   const product = {
     asin,
-    // store references to toolbar elements
+    block: productBlock,
+    // references to toolbar elements
     copyAsinImage: toolbar.children[0],
     propertiesImage: toolbar.children[1],
     positionSpan: toolbar.children[2],
@@ -465,6 +479,7 @@ function prepareProductBlock(productBlock, insertToolbarElem, position) {
   updateMainPartsOfProductBlock(product);
   updateNotesPartsOfProductBlock(product);
   updateCategoryPartsOfProductBlock(product);
+  updateMyAsinsPartsOfProductBlock(product);
 }
 
 
@@ -585,15 +600,6 @@ function onDialogSubmit() {
 
 
 
-function toggleVideoAdImages() {
-  for(const img of document.querySelectorAll('.sbv-product-container img')) {
-    img.style.visibility = options.isHideSponsoredProducts ? 'hidden' : '';
-  };
-}
-
-
-
-
 chrome.runtime.onMessage.addListener(function(msg) {
   n(); l('runtime.onMessage()', msg);
 
@@ -604,9 +610,11 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
       asinDialog.close();
 
-      updateMainPartsOfAllProductBlocks();
-      updateNotesPartsOfAllProductBlocks();
-      updateCategoryPartsOfAllProductBlocks();
+      updateAllProductBlocks(updateMainPartsOfProductBlock);
+      toggleVideoAdImages();
+      updateAllProductBlocks(updateNotesPartsOfProductBlock);
+      updateAllProductBlocks(updateCategoryPartsOfProductBlock);
+      updateAllProductBlocks(updateMyAsinsPartsOfProductBlock);
     break;
 
     case 'asins_that_have_notes':
@@ -614,13 +622,21 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
       asinDialog.close();
 
-      updateNotesPartsOfAllProductBlocks();
+      updateAllProductBlocks(updateNotesPartsOfProductBlock);
+    break;
+
+    case 'my_asins':
+      myAsins = msg.payload.asins ?? [];
+
+      updateAllProductBlocks(updateMyAsinsPartsOfProductBlock);
     break;
 
     case 'content_script_options':
       options = msg.payload.options;
 
-      updateMainPartsOfAllProductBlocks();
+      updateAllProductBlocks(updateMainPartsOfProductBlock);
+      toggleVideoAdImages();
+      updateAllProductBlocks(updateMyAsinsPartsOfProductBlock);
     break;
 
     default:
@@ -632,22 +648,9 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
 
 
-function updateMainPartsOfAllProductBlocks() {
+function updateAllProductBlocks(updateFunc) {
   for (const product of products) {
-    updateMainPartsOfProductBlock(product);
-  }
-  toggleVideoAdImages();
-}
-
-function updateNotesPartsOfAllProductBlocks() {
-  for (const product of products) {
-    updateNotesPartsOfProductBlock(product);
-  }
-}
-
-function updateCategoryPartsOfAllProductBlocks() {
-  for (const product of products) {
-    updateCategoryPartsOfProductBlock(product);
+    updateFunc(product);
   }
 }
 
@@ -688,6 +691,16 @@ function updateMainPartsOfProductBlock(product) {
 
 
 
+function toggleVideoAdImages() {
+  const style = options.isHideSponsoredProducts ? 'hidden' : '';
+  for(const img of document.querySelectorAll('.sbv-product-container img')) {
+    img.style.visibility = style;
+  };
+}
+
+
+
+
 function updateNotesPartsOfProductBlock(product) {
   // show 'properties' icon depending on whether ASIN has notes
   product.propertiesImage.src = asinsThatHaveNotes.includes(product.asin) ? menuWithNotesImageURL : menuImageURL;
@@ -710,4 +723,15 @@ function updateCategoryPartsOfProductBlock(product) {
     `)).join('');
   }
   product.categoriesSpan.innerHTML = categoriesStr;
+}
+
+
+
+
+function updateMyAsinsPartsOfProductBlock(product) {
+  const isMyASIN = myAsins.includes(product.asin);
+  // highlight product from 'My ASINs' list
+  product.block.style.backgroundColor = (options.isHighlightMyProducts && isMyASIN) ? MY_PRODUCT_COLOR : '';
+  // hide product from 'My ASINs' list
+  product.block.style.visibility = (options.isHideMyProducts && isMyASIN) ? 'hidden' : '';
 }

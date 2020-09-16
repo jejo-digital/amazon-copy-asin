@@ -1,22 +1,16 @@
 'use strict';
 
+document.querySelector('#editCategoryAsins').addEventListener('click', async function() {
+  const asinsText = await showTextStringsDialog(categoryAsins);
+  l(asinsText);
+  if (asinsText === null) {
+    return;
+  }
 
-document.querySelector('#edit').addEventListener('click', function() {
-  asinsTextarea.value = categoryAsins.join(EOL);
-  $(asinsDialog).modal();
-  asinsTextarea.select();
-});
-
-
-
-asinsDialog.querySelector('.btn-primary').addEventListener('click', function() {
-  let newAsins = clearText(asinsTextarea.value);
-  newAsins = (newAsins === '') ? [] : deduplicateArray(newAsins.split(EOL));
+  const newAsins = sanitizeTextToArray(asinsText);
   l(newAsins);
 
-  if (selectedCategory === '') {
-    // no category
-
+  if (selectedCategory === '') { // no category
     // delete ASINs that are not from new ASIN list
     for (const asin in asins) {
       if (!newAsins.includes(asin)) {
@@ -72,20 +66,13 @@ asinsDialog.querySelector('.btn-primary').addEventListener('click', function() {
   }
 
   saveAsins();
-
-  $(asinsDialog).modal('hide');
 });
 
 
 
 
-$(asinsDialog).on('shown.bs.modal', function() {
-  asinsTextarea.focus();
-});
-
-
-
-
-$(asinsDialog).on('hide.bs.modal', function() {
-  asinsTextarea.value = '';
+document.querySelector('#editMyAsins').addEventListener('click', function() {
+  port.postMessage({
+    id: 'get_my_asins',
+  });
 });

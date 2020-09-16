@@ -17,15 +17,6 @@ const asinsTableBody = document.querySelector('#asins tbody');
 
 const asinButtonsGroup = document.querySelector('fieldset');
 
-const asinsDialog = document.querySelector('#asinsDialog');
-const asinsTextarea = document.querySelector('textarea');
-
-const alertDialog = document.querySelector('#alertDialog');
-const alertDialogText = document.querySelector('#alertDialog h6');
-
-const confirmDialog = document.querySelector('#confirmDialog');
-const confirmDialogText = document.querySelector('#confirmDialog h6');
-
 const successToast = document.querySelector('#successToast');
 
 const manifest = chrome.runtime.getManifest();
@@ -129,7 +120,7 @@ else {
 
 
 const port = chrome.runtime.connect();
-port.onMessage.addListener(function(msg) {
+port.onMessage.addListener(async function(msg) {
   n(); l('port.onMessage()', msg);
 
   switch (msg.id) {
@@ -143,6 +134,23 @@ port.onMessage.addListener(function(msg) {
       showCategoryAsins();
       asinButtonsGroup.disabled = false;
       clearMarketplaceBsrsButton.disabled = false;
+    break;
+
+    case 'my_asins':
+      const asinsText = await showTextStringsDialog(msg.payload.asins);
+      l(asinsText);
+      if (asinsText === null) {
+        return;
+      }
+
+      const newAsins = sanitizeTextToArray(asinsText);
+      l(newAsins);
+      port.postMessage({
+        id: 'set_my_asins',
+        payload: {
+          asins: newAsins,
+        },
+      });
     break;
 
     default:
@@ -168,19 +176,36 @@ function filterAsinsByCategory() {
 function showCategoryAsins() {
   l('showCategoryAsins()', categoryAsins);
 
+  const getBsrAbsentValueHTML = getAbsentValueHTML('BSR');
+  const getParentAsinAbsentValueHTML = getAbsentValueHTML('Parent ASIN');
+
   asinsTableBody.innerHTML = categoryAsins.map(function(asin) {
     let bsr = asins[asin].bsr;
     if (bsr === undefined) {
       // bsr obtaining was never performed
-      bsr = '';
+      bsr = NEVER_SCRAPED_SYMBOL;
     }
     else if (bsr === null) {
       // bsr obtained, but was absent
-      bsr = `<div class="text-center" title="BSR value absent on product page">\u2717</div>`;
+      bsr = getBsrAbsentValueHTML;
     }
     else if (typeof bsr === 'string') {
       // bsr obtained with error
       bsr = `<div class="text-center" title="${bsr}">\u26A0</div>`;
+    }
+
+    let parentAsin = asins[asin].parentAsin;
+    if (parentAsin === undefined) {
+      // obtaining was never performed
+      parentAsin = NEVER_SCRAPED_SYMBOL;
+    }
+    else if (parentAsin === null) {
+      // bsr obtained, but was absent
+      parentAsin = getParentAsinAbsentValueHTML;
+    }
+    // is this possible?
+    else if (parentAsin === asin) {
+      parentAsin = `<div class="text-center" title="disaster"><b>THE SAME</b></div>`;
     }
 
     return `
@@ -191,9 +216,19 @@ function showCategoryAsins() {
         <td>
           ${bsr}
         </td>
+        <td>
+          ${parentAsin}
+        </td>
       </tr>
     `;
   }).join('');
+}
+
+
+
+
+function getAbsentValueHTML(name) {
+  return `<div class="text-center" title="${name} absent on product page">${ABSENT_SYMBOL}</div>`;
 }
 
 

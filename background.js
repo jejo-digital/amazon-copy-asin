@@ -2,9 +2,9 @@
 
 // asins for all marketplaces
 let asins;
-// all notes
+
 let notes;
-//let bsrs;
+let myAsins;
 
 // Amazon tabs where content script started
 const amazonTabs = new Map();
@@ -72,8 +72,12 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
         notes[asin] = newNotes;
       }
 
-      chrome.storage.sync.set({notes}, updateAmazonTabsWithNotes);
+      chrome.storage.sync.set({notes}, updateAmazonTabsWithAsinsThatHaveNotes);
     }
+    break;
+
+    case 'get_my_asins':
+      sendResponse(myAsins);
     break;
 
     default:
@@ -89,11 +93,13 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
 chrome.storage.sync.get({
   asins: {},
   notes: {},
+  myAsins: [],
 }, function(storage) {
   l('storage.get()', storage);
 
   asins = storage.asins;
   notes = storage.notes;
+  myAsins = storage.myAsins;
 });
 
 
@@ -185,6 +191,20 @@ chrome.runtime.onConnect.addListener(function(port) {
         saveAsins(updateViewsWithAsins);
       break;
 
+      case 'get_my_asins':
+        port.postMessage({
+          id: 'my_asins',
+          payload: {
+            asins: myAsins,
+          },
+        });
+      break;
+
+      case 'set_my_asins':
+        myAsins = msg.payload.asins;
+        chrome.storage.sync.set({myAsins}, updateAmazonTabsWithMyAsins);
+      break;
+
       default:
         l('message not processed');
       break;
@@ -234,14 +254,31 @@ function updateViewsWithAsins(marketplace) {
 
 
 // send ASINs that have notes to Amazon tabs
-function updateAmazonTabsWithNotes() {
-  l('updateAmazonTabsWithNotes()');
+function updateAmazonTabsWithAsinsThatHaveNotes() {
+  l('updateAmazonTabsWithAsinsThatHaveNotes()');
 
   for (const tabId of amazonTabs.keys()) {
     chrome.tabs.sendMessage(tabId, {
       id: 'asins_that_have_notes',
       payload: {
         asins: getAsinsThatHaveNotes(),
+      },
+    });
+  }
+}
+
+
+
+
+// send 'my ASINs' to Amazon tabs
+function updateAmazonTabsWithMyAsins() {
+  l('updateAmazonTabsWithMyAsins()');
+
+  for (const tabId of amazonTabs.keys()) {
+    chrome.tabs.sendMessage(tabId, {
+      id: 'my_asins',
+      payload: {
+        asins: myAsins,
       },
     });
   }
@@ -263,6 +300,7 @@ Object.defineProperty(window, 's', {
     console.group('current situation');
     l('asins', asins);
     l('notes', notes);
+    l('myAsins', myAsins);
     l('amazonTabs', amazonTabs);
     l('popupViews', popupViews);
 

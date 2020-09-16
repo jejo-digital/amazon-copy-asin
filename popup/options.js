@@ -19,9 +19,11 @@ chrome.storage.sync.get({
 const isHighlightCopiedProductsCheckbox = document.querySelector('#isHighlightCopiedProducts');
 const isHighlightNotCopiedProductsCheckbox = document.querySelector('#isHighlightNotCopiedProducts');
 const isHighlightSponsoredProductsCheckbox = document.querySelector('#isHighlightSponsoredProducts');
+const isHighlightMyProductsCheckbox = document.querySelector('#isHighlightMyProducts');
 
 const isHideSponsoredProductsCheckbox = document.querySelector('#isHideSponsoredProducts');
 const isHideCopiedProductsCheckbox = document.querySelector('#isHideCopiedProducts');
+const isHideMyProductsCheckbox = document.querySelector('#isHideMyProducts');
 
 const isShowProductPositionsCheckbox = document.querySelector('#isShowProductPositions');
 
@@ -35,9 +37,11 @@ function showContentScriptOptions() {
   isHighlightCopiedProductsCheckbox.checked = options.isHighlightCopiedProducts;
   isHighlightNotCopiedProductsCheckbox.checked = options.isHighlightNotCopiedProducts;
   isHighlightSponsoredProductsCheckbox.checked = options.isHighlightSponsoredProducts;
+  isHighlightMyProductsCheckbox.checked = options.isHighlightMyProducts;
 
   isHideSponsoredProductsCheckbox.checked = options.isHideSponsoredProducts;
   isHideCopiedProductsCheckbox.checked = options.isHideCopiedProducts;
+  isHideMyProductsCheckbox.checked = options.isHideMyProducts;
 
   isShowProductPositionsCheckbox.checked = options.isShowProductPositions;
 }

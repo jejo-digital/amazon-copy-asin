@@ -184,28 +184,30 @@ function obtainBsrs() {
         n(); l('after response.text()', i, asin);
         updateProgress();
 
-        let bsr = html.match(/>[^>]+\(<a href=['"]\/gp\/bestsellers/s)?.[0];
-        l(bsr);
-        if (bsr === undefined) {
-          if (html.includes('captcha')) {
-            reject('Error: CAPTCHA');
-            abortController.abort();
-            cancelPendingBsrRequests();
-            $(bsrProgressDialog).modal('hide');
-            return;
-          }
-          // BSR is really absent on page
-          ++amountOfObtainedBsrs;
-          asins[asin].bsr = null;
-          checkForEndOfProcessing();
+        if (html.includes('captcha')) {
+          reject('Error: CAPTCHA');
+          abortController.abort();
+          cancelPendingBsrRequests();
+          $(bsrProgressDialog).modal('hide');
           return;
         }
 
-        ++amountOfObtainedBsrs;
+        // scrape parent asin
+        const parentAsin = html.match(/"parent_asin":"(\w+)"/)?.[1] ?? null;
+        l(parentAsin);
+        asins[asin].parentAsin = parentAsin;
 
-        bsr = bsr.replace(/\D/g, '');
+        // scrape BSR
+        let bsr = html.match(/>[^>]+\(<a href=['"]\/gp\/bestsellers/s)?.[0] ?? null;
         l(bsr);
-        bsr = Number.parseInt(bsr);
+        if (bsr !== null) {
+          // BSR is present on page
+          bsr = bsr.replace(/\D/g, '');
+          l(bsr);
+          bsr = Number.parseInt(bsr);
+        }
+
+        ++amountOfObtainedBsrs;
 
         asins[asin].bsr = bsr;
         sortCategoryAsinsByBSR();

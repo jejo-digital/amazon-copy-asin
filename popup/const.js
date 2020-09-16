@@ -7,3 +7,6 @@ const Msg = {
   CANCELLED_BY_USER: 'Cancelled by user.',
   ASIN_LIST_IS_EMPTY: 'ASIN list is empty.',
 };
+
+const NEVER_SCRAPED_SYMBOL = '';
+const ABSENT_SYMBOL = '\u2717';
