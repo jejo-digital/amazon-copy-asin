@@ -203,9 +203,8 @@ function showCategoryAsins() {
       // bsr obtained, but was absent
       parentAsin = getParentAsinAbsentValueHTML;
     }
-    // is this possible?
     else if (parentAsin === asin) {
-      parentAsin = `<div class="text-center" title="disaster"><b>THE SAME</b></div>`;
+      parentAsin = `<b title="Parent ASIN is equal to main ASIN">${parentAsin}</b>`;
     }
 
     return `
@@ -228,7 +227,7 @@ function showCategoryAsins() {
 
 
 function getAbsentValueHTML(name) {
-  return `<div class="text-center" title="${name} absent on product page">${ABSENT_SYMBOL}</div>`;
+  return `<div class="text-center" title="${name} is absent on product page">${ABSENT_SYMBOL}</div>`;
 }
 
 

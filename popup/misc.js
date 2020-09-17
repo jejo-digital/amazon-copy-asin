@@ -2,7 +2,7 @@
 
 // removes spaces, tabs and empty lines
 function clearText(text) {
-  return text.replace(/ |\t/g, '').replace(/\n{2,}/g, '\n').trim();
+  return text.replace(/ |\t/g, '').replace(new RegExp(EOL + '{2,}', 'g'), EOL).trim();
 }
 
 
@@ -66,9 +66,9 @@ function getTopAsins() {
       continue;
     }
 
-    // store ASIN with unique BSR
+    // store parent ASIN(or main ASIN if it is absent) with unique BSR
     row.classList.add('bg-success');
-    topAsins.set(bsr, asin);
+    topAsins.set(bsr, asins[asin].parentAsin ?? asin);
   }
 
   d(topAsins);

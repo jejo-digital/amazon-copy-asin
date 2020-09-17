@@ -5,20 +5,20 @@ const copyTopButton = document.querySelector('#copyTop');
 copyTopButton.value += TOP_ASINS_AMOUNT;
 
 
-// copy as comma separated
+// copy ASINs as comma separated
 document.querySelector('#copyCommaSeparated').addEventListener('click', function() {
   if (categoryAsins.length === 0) {
     showAlertDialog(Msg.ASIN_LIST_IS_EMPTY);
     return;
   }
 
-  copyAsinsArrayToClipboard(categoryAsins, ',');
+  copyArrayToClipboard(categoryAsins, 'ASINs', ',');
 });
 
 
 
 
-// copy top ASINS
+// copy top parent ASINS
 copyTopButton.addEventListener('click', async function() {
   try {
     const result = await obtainAndSaveBsrs();
@@ -37,7 +37,7 @@ copyTopButton.addEventListener('click', async function() {
     }
   }
 
-  copyAsinsArrayToClipboard(getTopAsins(), EOL);
+  copyArrayToClipboard(getTopAsins(), 'parent ASINs', EOL);
 });
 
 
@@ -64,7 +64,7 @@ document.querySelector('#copyWithBsr').addEventListener('click', function() {
     return asin + ',' + bsr;
   });
 
-  copyAsinsArrayToClipboard(asinsWithBsrs, EOL);
+  copyArrayToClipboard(asinsWithBsrs, 'ASINs', EOL);
 });
 
 
@@ -82,4 +82,3 @@ async function copyArrayToClipboard(array, itemName, separator) {
     showAlertDialog('Copy error: ' + err.message);
   }
 }
-const copyAsinsArrayToClipboard = (array, separator) => copyArrayToClipboard(array, 'ASINs', separator);
