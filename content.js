@@ -633,9 +633,9 @@ chrome.runtime.onMessage.addListener(function(msg) {
 
       updateAllProductBlocks(updateMainPartsOfProductBlock);
       toggleVideoAdImages();
+      updateAllProductBlocks(updateMyAsinsPartsOfProductBlock);
       updateAllProductBlocks(updateNotesPartsOfProductBlock);
       updateAllProductBlocks(updateCategoryPartsOfProductBlock);
-      updateAllProductBlocks(updateMyAsinsPartsOfProductBlock);
     break;
 
     case 'asins_that_have_notes':
@@ -701,12 +701,6 @@ function updateMainPartsOfProductBlock(product) {
   // highlight sponsored product image
   product.image.style.outline = (options.isHighlightSponsoredProducts && product.isSponsored) ? SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE : '';
 
-  // hide sponsored or pseudo-sponsored or copied product
-  product.image.style.visibility =
-    ((options.isHideSponsoredProducts && (product.isSponsored || product.isPseudoSponsored))
-     ||
-     (options.isHideCopiedProducts && isAsinCopied)) ? 'hidden' : '';
-
   // show 'copy' icon depending on whether ASIN is copied
   product.copyAsinImage.src = isAsinCopied ? successImageURL : copyImageURL;
 
@@ -722,6 +716,26 @@ function toggleVideoAdImages() {
   for(const img of document.querySelectorAll('.sbv-product-container img')) {
     img.style.visibility = style;
   };
+}
+
+
+
+
+function updateMyAsinsPartsOfProductBlock(product) {
+  const isMyASIN = myAsins.includes(product.asin);
+
+  // highlight product from 'My ASINs' list
+  product.block.style.backgroundColor = (options.isHighlightMyProducts && isMyASIN) ? MY_PRODUCT_COLOR : '';
+
+  // hide sponsored or pseudo-sponsored product or copied product or product from 'My ASINs' list
+  const isAsinCopied = !!(asins[product.asin]?.isCopied);
+  product.block.style.visibility =
+    ((options.isHideSponsoredProducts && (product.isSponsored || product.isPseudoSponsored))
+     ||
+     (options.isHideCopiedProducts && isAsinCopied)
+     ||
+     (options.isHideMyProducts && isMyASIN)
+     ) ? 'hidden' : '';
 }
 
 
@@ -752,17 +766,6 @@ function updateCategoryPartsOfProductBlock(product) {
     })).join('');
   }
   product.categoriesSpan.innerHTML = categoriesHTML;
-}
-
-
-
-
-function updateMyAsinsPartsOfProductBlock(product) {
-  const isMyASIN = myAsins.includes(product.asin);
-  // highlight product from 'My ASINs' list
-  product.block.style.backgroundColor = (options.isHighlightMyProducts && isMyASIN) ? MY_PRODUCT_COLOR : '';
-  // hide product from 'My ASINs' list
-  product.block.style.visibility = (options.isHideMyProducts && isMyASIN) ? 'hidden' : '';
 }
 
 
