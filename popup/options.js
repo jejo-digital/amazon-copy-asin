@@ -16,14 +16,12 @@ chrome.storage.sync.get({
 
 
 const isHighlightCopiedProductsCheckbox = document.querySelector('#isHighlightCopiedProducts');
-const isHideCopiedProductsCheckbox = document.querySelector('#isHideCopiedProducts');
-
+const isHighlightSponsoredProductsCheckbox = document.querySelector('#isHighlightSponsoredProducts');
+const isHighlightMyProductsCheckbox = document.querySelector('#isHighlightMyProducts');
 const isHighlightNotCopiedProductsCheckbox = document.querySelector('#isHighlightNotCopiedProducts');
 
-const isHighlightSponsoredProductsCheckbox = document.querySelector('#isHighlightSponsoredProducts');
+const isHideCopiedProductsCheckbox = document.querySelector('#isHideCopiedProducts');
 const isHideSponsoredProductsCheckbox = document.querySelector('#isHideSponsoredProducts');
-
-const isHighlightMyProductsCheckbox = document.querySelector('#isHighlightMyProducts');
 const isHideMyProductsCheckbox = document.querySelector('#isHideMyProducts');
 
 const isShowProductPositionsCheckbox = document.querySelector('#isShowProductPositions');
@@ -35,14 +33,12 @@ function showOptions() {
   l('showOptions()');
 
   isHighlightCopiedProductsCheckbox.checked = options.isHighlightCopiedProducts;
-  isHideCopiedProductsCheckbox.checked = options.isHideCopiedProducts;
-
+  isHighlightSponsoredProductsCheckbox.checked = options.isHighlightSponsoredProducts;
+  isHighlightMyProductsCheckbox.checked = options.isHighlightMyProducts;
   isHighlightNotCopiedProductsCheckbox.checked = options.isHighlightNotCopiedProducts;
 
-  isHighlightSponsoredProductsCheckbox.checked = options.isHighlightSponsoredProducts;
+  isHideCopiedProductsCheckbox.checked = options.isHideCopiedProducts;
   isHideSponsoredProductsCheckbox.checked = options.isHideSponsoredProducts;
-
-  isHighlightMyProductsCheckbox.checked = options.isHighlightMyProducts;
   isHideMyProductsCheckbox.checked = options.isHideMyProducts;
 
   isShowProductPositionsCheckbox.checked = options.isShowProductPositions;

@@ -46,7 +46,7 @@
         max-width: 140px;
       }
 
-      #asins {
+      #asins tbody {
         font-size: 0.8rem;
       }
 
@@ -114,14 +114,20 @@
               Highlight copied products
             </label>
           </div>
+
           <div class="form-check">
             <label class="form-check-label">
-              <input class="form-check-input" type="checkbox" id="isHideCopiedProducts" data-product-category="copied">
-              Hide copied products
+              <input class="form-check-input" type="checkbox" id="isHighlightSponsoredProducts" data-product-category="sponsored">
+              Highlight sponsored products
             </label>
           </div>
 
-          <hr>
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightMyProducts" data-product-category="my">
+              Highlight my products
+            </label>
+          </div>
 
           <div class="form-check">
             <label class="form-check-label">
@@ -134,10 +140,11 @@
 
           <div class="form-check">
             <label class="form-check-label">
-              <input class="form-check-input" type="checkbox" id="isHighlightSponsoredProducts" data-product-category="sponsored">
-              Highlight sponsored products
+              <input class="form-check-input" type="checkbox" id="isHideCopiedProducts" data-product-category="copied">
+              Hide copied products
             </label>
           </div>
+
           <div class="form-check">
             <label class="form-check-label" title="Also hides pseudo-sponsored products">
               <input class="form-check-input" type="checkbox" id="isHideSponsoredProducts" data-product-category="sponsored">
@@ -145,14 +152,6 @@
             </label>
           </div>
 
-          <hr>
-
-          <div class="form-check">
-            <label class="form-check-label">
-              <input class="form-check-input" type="checkbox" id="isHighlightMyProducts" data-product-category="my">
-              Highlight my products
-            </label>
-          </div>
           <div class="form-check">
             <label class="form-check-label">
               <input class="form-check-input" type="checkbox" id="isHideMyProducts" data-product-category="my">

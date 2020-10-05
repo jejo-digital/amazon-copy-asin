@@ -2,14 +2,12 @@
 
 const DEFAULT_OPTIONS = {
   isHighlightCopiedProducts: true,
-  isHideCopiedProducts: false,
-
+  isHighlightSponsoredProducts: true,
+  isHighlightMyProducts: false,
   isHighlightNotCopiedProducts: true,
 
-  isHighlightSponsoredProducts: true,
+  isHideCopiedProducts: false,
   isHideSponsoredProducts: false,
-
-  isHighlightMyProducts: false,
   isHideMyProducts: false,
 
   isShowProductPositions: true,
