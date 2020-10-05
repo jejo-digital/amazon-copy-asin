@@ -1,7 +1,7 @@
 'use strict';
 
 document.querySelector('#editCategoryAsins').addEventListener('click', async function() {
-  const asinsText = await showTextStringsDialog(categoryAsins);
+  const asinsText = await showTextStringsDialog('Category ASINs', categoryAsins);
   l(asinsText);
   if (asinsText === null) {
     return;
@@ -10,7 +10,8 @@ document.querySelector('#editCategoryAsins').addEventListener('click', async fun
   const newAsins = sanitizeTextToArray(asinsText);
   l(newAsins);
 
-  if (selectedCategory === '') { // no category
+  let isAtLeastOneAsinAdded = false;
+  if (selectedCategory === NO_CATEGORY) {
     // delete ASINs that are not from new ASIN list
     for (const asin in asins) {
       if (!newAsins.includes(asin)) {
@@ -24,31 +25,28 @@ document.querySelector('#editCategoryAsins').addEventListener('click', async fun
         asins[asin] = {
           isCopied: true,
         };
+        isAtLeastOneAsinAdded = true;
       }
     }
   }
-  else { // some category is selected
+  else { // category is selected
     // delete selected category from ASINs that are not from new ASIN list
     for (const asin in asins) {
-      l(asin);
       if (!newAsins.includes(asin)) {
         delete asins[asin].categories?.[selectedCategory];
       }
     }
 
-    n();
-
     // add selected category to ASINs from new ASIN list
     for (const asin of newAsins) {
-      l(asin);
-      if (asins[asin] === undefined) {
-        // new ASIN
+      if (asins[asin] === undefined) { // new ASIN
         asins[asin] = {
           isCopied: true,
           categories: {
             [selectedCategory]: true,
           },
         };
+        isAtLeastOneAsinAdded = true;
       }
       else { // existing ASIN
         if (asins[asin].categories === undefined) {
@@ -65,14 +63,21 @@ document.querySelector('#editCategoryAsins').addEventListener('click', async fun
     }
   }
 
+  if (isAtLeastOneAsinAdded) {
+    deleteScrapedDataFromCategoryAsins();
+  }
   saveAsins();
 });
 
 
 
 
-document.querySelector('#editMyAsins').addEventListener('click', function() {
+function saveAsins() {
   port.postMessage({
-    id: 'get_my_asins',
+    id: 'set_marketplace_asins',
+    payload: {
+      marketplace: selectedMarketplace,
+      asins,
+    },
   });
-});
+}

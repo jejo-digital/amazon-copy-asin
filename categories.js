@@ -1,6 +1,6 @@
 'use strict';
 
-const CATEGORIES = [
+const CATEGORY_NAMES = [
   'green',
   'yellow',
   'orange',

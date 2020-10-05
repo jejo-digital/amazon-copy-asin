@@ -63,13 +63,14 @@ document.querySelector('form').addEventListener('input', function({target: check
   // save options
   chrome.storage.sync.set({
     options,
-  });
-  // send options to BG page and other popup views(BG page will forward it to content scripts)
-  chrome.runtime.sendMessage({
-    id: 'content_script_options',
-    payload: {
-      options,
-    },
+  }, function() {
+    // send options to BG page and other popups(BG page will send it to content scripts)
+    chrome.runtime.sendMessage({
+      id: 'content_script_options',
+      payload: {
+        options,
+      },
+    });
   });
 });
 
@@ -88,35 +89,13 @@ bsrRequestsIntervalInput.addEventListener('change', function({target: input}) {
   // save options
   chrome.storage.sync.set({
     options,
+  }, function() {
+    // send options to BG page and other popups(they are not used in BG page)
+    chrome.runtime.sendMessage({
+      id: 'popup_options',
+      payload: {
+        options,
+      },
+    });
   });
-  // send options to other popup views(they are also send to BG page, but they are not used there)
-  chrome.runtime.sendMessage({
-    id: 'popup_options',
-    payload: {
-      options,
-    },
-  });
-});
-
-
-
-
-chrome.runtime.onMessage.addListener(function(msg) {
-  n(); l('runtime.onMessage()', msg);
-
-  switch (msg.id) {
-    case 'content_script_options':
-      options = msg.payload.options;
-      showContentScriptOptions();
-    break;
-
-    case 'popup_options':
-      options = msg.payload.options;
-      showPopupOptions();
-    break;
-
-    default:
-      l('message not processed');
-    break;
-  }
 });

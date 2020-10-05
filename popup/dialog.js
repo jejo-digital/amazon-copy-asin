@@ -7,6 +7,7 @@ const confirmDialog = document.querySelector('#confirmDialog');
 const confirmDialogText = confirmDialog.querySelector('h6');
 
 const textStringsDialog = document.querySelector('#textStringsDialog');
+const textStringsDialogTitleElem = textStringsDialog.querySelector('.modal-title');
 const textStringsDialogTextarea = textStringsDialog.querySelector('textarea');
 
 
@@ -20,7 +21,7 @@ function showAlertDialog(msg) {
 
 function showConfirmDialog(msg) {
   return new Promise(function(resolve) {
-    let wasConfirmed = false;
+    let isConfirmed = false;
   
     confirmDialogText.textContent = msg;
     $(confirmDialog).modal();
@@ -30,12 +31,12 @@ function showConfirmDialog(msg) {
     primaryButton.addEventListener('click', registerConfirmation);
     $(confirmDialog).one('hide.bs.modal', function() {
       primaryButton.removeEventListener('click', registerConfirmation);
-      resolve(wasConfirmed);
+      resolve(isConfirmed);
     });
 
 
     function registerConfirmation() {
-     wasConfirmed = true;
+     isConfirmed = true;
     }
 
 
@@ -45,10 +46,11 @@ function showConfirmDialog(msg) {
 
 
 
-function showTextStringsDialog(textStrings) {
+function showTextStringsDialog(title, textStrings) {
   return new Promise(function(resolve) {
     let result = null;
 
+    textStringsDialogTitleElem.textContent = title;
     textStringsDialogTextarea.value = textStrings.join(EOL);
     $(textStringsDialog).modal();
     textStringsDialogTextarea.select();

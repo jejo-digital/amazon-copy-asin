@@ -8,5 +8,7 @@ const Msg = {
   ASIN_LIST_IS_EMPTY: 'ASIN list is empty.',
 };
 
+const NO_CATEGORY = '';
+
 const NEVER_SCRAPED_SYMBOL = '';
 const ABSENT_SYMBOL = '\u2717';

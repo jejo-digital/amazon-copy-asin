@@ -1,8 +1,8 @@
 'use strict';
 
-const copyTopButton = document.querySelector('#copyTop');
+const copyTopParentButton = document.querySelector('#copyTopParent');
 
-copyTopButton.value += TOP_ASINS_AMOUNT;
+copyTopParentButton.value += TOP_ASINS_AMOUNT;
 
 
 // copy ASINs as comma separated
@@ -19,10 +19,14 @@ document.querySelector('#copyCommaSeparated').addEventListener('click', function
 
 
 // copy top parent ASINS
-copyTopButton.addEventListener('click', async function() {
+copyTopParentButton.addEventListener('click', async function() {
   try {
     const result = await obtainAndSaveBsrs();
     l('resolve', result);
+
+    detectTopAsins();
+    isNeedToClearTopAsins = false;
+    copyArrayToClipboard(getParentTopAsins(), 'parent ASINs', EOL);
   }
   catch(err) {
     l('reject', err);
@@ -36,8 +40,6 @@ copyTopButton.addEventListener('click', async function() {
       return;
     }
   }
-
-  copyArrayToClipboard(getTopAsins(), 'parent ASINs', EOL);
 });
 
 

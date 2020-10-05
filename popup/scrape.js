@@ -4,7 +4,9 @@ const bsrProgressDialog = document.querySelector('#bsrProgressDialog');
 const bsrProgressBar = document.querySelector('#bsrProgressDialog .progress-bar');
 const bsrProgressText = document.querySelector('#bsrProgressDialog p');
 
-const clearMarketplaceBsrsButton = document.querySelector('#clearMarketplaceBsrs');
+const deleteMarketplaceScrapedDataButton = document.querySelector('#deleteMarketplaceScrapedData');
+
+let isNeedToClearTopAsins = true;
 
 let timeoutIds;
 
@@ -88,14 +90,15 @@ async function obtainAndSaveBsrs() {
 let abortController;
 
 
-function obtainBsrs() {
+function obtainBsrs() { // and parent asins
   return new Promise(function(resolve, reject) {
     if (categoryAsins.length === 0) {
       reject(Msg.ASIN_LIST_IS_EMPTY);
       return;
     }
 
-    const asinsToProcess = categoryAsins.filter(asin => asins[asin].bsr === undefined);
+    // process all ASINs
+    const asinsToProcess = categoryAsins;//.filter(asin => asins[asin].bsr === undefined);
     l(asinsToProcess);
 
     if (asinsToProcess.length === 0) {
@@ -111,10 +114,18 @@ function obtainBsrs() {
     let amountOfProcessedAsins = 0;
     let amountOfObtainedBsrs = 0;
     abortController = new AbortController();
-    abortController.signal.onabort = function() {
-      l('onabort', arguments);
+    abortController.signal.onabort = function(event) {
+      l('onabort', event);
       reject(Msg.CANCELLED_BY_USER);
+
+      // restore ASINs backup
+      asins = asinsBackup;
+      sortCategoryAsinsByBSR();
+      showCategoryAsins();
     };
+
+    // backup ASINs
+    const asinsBackup = JSON.parse(JSON.stringify(asins));
 
     for (let i = 0; i < asinsToProcess.length; ++i) {
       timeoutIds.push(setTimeout(async function() {
@@ -210,6 +221,7 @@ function obtainBsrs() {
         ++amountOfObtainedBsrs;
 
         asins[asin].bsr = bsr;
+
         sortCategoryAsinsByBSR();
         showCategoryAsins();
 
@@ -269,26 +281,123 @@ function cancelPendingBsrRequests() {
 
 
 
-clearMarketplaceBsrsButton.addEventListener('click', async function() {
-  const isCategorySelected = selectedCategory !== '';
-
-  if (!await showConfirmDialog(`ALL BSRs in selected marketplace ${isCategorySelected ? 'and category ' : ''}will be deleted. Proceed?`)) {
+deleteMarketplaceScrapedDataButton.addEventListener('click', async function() {
+  if (!await showConfirmDialog(`ALL scraped data for ASINs in selected marketplace ${(selectedCategory !== NO_CATEGORY) ? 'and category ' : ''}will be deleted. Proceed?`)) {
     return;
   }
 
-  if (isCategorySelected) {
-    // delete BSRs from ASINs in selected category
-    for (const asin of categoryAsins) {
-      l(asin);
-      delete asins[asin].bsr;
+  deleteScrapedDataFromCategoryAsins();
+  saveAsins();
+});
+
+
+
+
+
+function detectTopAsins() {
+  l('detectTopAsins()');
+
+  clearTopAsins();
+
+  const uniqueParentAsins = new Set();
+  for (let i = 0; i < categoryAsins.length; ++i) {
+
+    if (uniqueParentAsins.size === TOP_ASINS_AMOUNT) {
+      // enough ASINs
+      break;
+    }
+
+    const asin = categoryAsins[i];
+    const asinObj = asins[asin];
+    const bsr = asinObj.bsr;
+    const parentAsin = asinObj.parentAsin;
+    l(EOL); l(asin, bsr, parentAsin);
+
+    if (isNoBsr(bsr)) {
+      // we reached group of ASINs in the end that don't have BSR, no need to go further
+      break;
+    }
+
+    // parent ASIN or main ASIN if parent ASIN is absent
+    const resultAsin = parentAsin ?? asin;
+    l(resultAsin);
+
+    if (uniqueParentAsins.has(resultAsin)) {
+      // skip not unique result ASIN
+      topAsins[asin] = null;
+      continue;
+    }
+
+    // store result ASIN
+    uniqueParentAsins.add(resultAsin);
+    topAsins[asin] = resultAsin;
+  }
+
+  updateOtherPopupsWithTopAsins();
+}
+
+
+
+
+function getParentTopAsins() {
+  const result = [];
+  for (const asin in topAsins) {
+    const parentAsin = topAsins[asin];
+    if (parentAsin !== null) {
+      result.push(parentAsin);
+    }
+  }
+  return result;
+}
+
+
+
+
+function deleteScrapedDataFromCategoryAsins() {
+  l('deleteScrapedDataFromCategoryAsins()', selectedCategory);
+
+  clearTopAsins();
+  updateOtherPopupsWithTopAsins();
+
+  if (selectedCategory === NO_CATEGORY) {
+    // delete properties from all ASINs
+    for (const asin in asins) {
+      deleteScrapedDataFromAsin(asin);
     }
   }
   else {
-    // delete BSRs from all ASINs
-    for (const asin in asins) {
-      delete asins[asin].bsr;
+    // delete properties from ASINs in selected category
+    for (const asin of categoryAsins) {
+      deleteScrapedDataFromAsin(asin);
     }
   }
 
-  saveAsins();
-});
+
+  function deleteScrapedDataFromAsin(asin) {
+    const asinObj = asins[asin];
+    delete asinObj.bsr;
+    delete asinObj.parentAsin;
+    delete asinObj.inTop;
+  }
+}
+
+
+
+
+function clearTopAsins() {
+  topAsins = {};
+}
+
+
+
+
+function updateOtherPopupsWithTopAsins() {
+  chrome.runtime.sendMessage({
+    id: 'top_asins',
+    payload: {
+      asins: topAsins,
+      marketplace: selectedMarketplace,
+      category: selectedCategory,
+    },
+  });
+}

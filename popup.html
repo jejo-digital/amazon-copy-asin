@@ -4,23 +4,26 @@
     <meta charset="UTF-8">
 
     <script src="console.js"></script>
-    <script src="const.js"></script>
+    <script src="const/background and popup.js"></script>
+    <script src="const/content script and popup.js"></script>
+    <script src="const/popup.js"></script>
     <script src="misc.js"></script>
     <script src="default options.js"></script>
     <script src="categories.js"></script>
-    <script src="getCategoryBadgeHTML.js"></script>
-    <script src="popup/const.js"></script>
+    <script src="getCircleHTML.js"></script>
     <script src="popup/misc.js"></script>
 
     <script src="popup/lib/jquery-3.5.1.js"></script>
     <script src="popup/lib/bootstrap.js"></script>
 
+    <script defer src="popup/descriptions.js"></script>
     <script defer src="popup/main.js"></script>
     <script defer src="popup/dialog.js"></script>
     <script defer src="popup/edit.js"></script>
     <script defer src="popup/open.js"></script>
-    <script defer src="popup/bsr.js"></script>
+    <script defer src="popup/scrape.js"></script>
     <script defer src="popup/copy.js"></script>
+    <script defer src="popup/my ASINs.js"></script>
     <script defer src="popup/options.js"></script>
 
     <link rel="stylesheet" href="popup/lib/bootstrap.css">
@@ -33,45 +36,56 @@
       input[type=number] {
         width: 80px;
       }
+
+      th {
+        text-align: center;
+      }
+
+      #categories td {
+        max-width: 140px;
+      }
     </style>
   </head>
   <body class="m-2">
     <section class="d-flex">
       <div class="mr-2">
-        <div class="text-center">
-          <b>Markets</b>
-        </div>
         <table id="marketplaces" class="table table-sm table-bordered table-hover">
+          <thead>
+            <tr>
+              <th>Markets</th>
+            </tr>
+          </thead>
           <tbody>
           </tbody>
         </table>
       </div>
 
       <div class="mr-2">
-        <b>Categories</b>
         <table id="categories" class="table table-sm table-bordered table-hover">
-          <tbody data-index="0" class="text-uppercase">
+          <thead>
+            <tr>
+              <th>Categories</th>
+            </tr>
+          </thead>
+          <tbody data-index="0">
             <tr>
               <td>
                 <span style="padding-left: 15px;">
                   &nbsp;
-                  all
+                  ALL
                 </span>
               </td>
             </tr>
           </tbody>
-          <tbody data-index="1" class="text-capitalize"></tbody>
+          <tbody data-index="1"></tbody>
         </table>
       </div>
 
       <div class="d-flex flex-column mr-2">
-        <div class="text-center">
-          <b>ASINs</b>
-        </div>
         <table id="asins" class="table table-sm table-bordered" style="width: 290px;">
           <thead>
             <tr>
-              <th style="width: 114px;">Value</th>
+              <th style="width: 114px;">ASIN</th>
               <th>BSR</th>
               <th>Parent ASIN</th>
             </tr>
@@ -165,7 +179,7 @@
               <input type="button" id="obtainBsrs" class="btn btn-primary btn-sm" value="Sort by BSR" />
             </div>
             <div class="btn-group-vertical mb-1">
-              <input type="button" id="copyTop" class="btn btn-primary btn-sm" value="Copy top " />
+              <input type="button" id="copyTopParent" class="btn btn-primary btn-sm" value="Copy parent top " />
               <input type="button" id="copyCommaSeparated" class="btn btn-primary btn-sm" value="Copy comma separated" />
               <input type="button" id="copyWithBsr" class="btn btn-primary btn-sm" value="Copy with BSR" />
             </div>
@@ -176,10 +190,11 @@
           </fieldset>
           <div class="d-flex flex-column">
             <div class="btn-group-vertical mb-1">
-              <input type="button" id="clearAllAsins" class="btn btn-sm btn-danger" value="Clear all ASINs" />
-              <input type="button" id="clearMarketplaceBsrs" class="btn btn-sm btn-danger" value="Clear market BSRs" disabled />
+              <input type="button" id="deleteAllAsins" class="btn btn-sm btn-danger" value="Clear all ASINs" />
+              <button id="deleteMarketplaceScrapedData" class="btn btn-sm btn-danger" title="BSR and Parent ASIN" disabled>Clear market<br>scraped data</button>
             </div>
-            <input type="button" id="editMyAsins" class="btn btn-sm btn-success" value="My ASINs" />
+            <input type="button" id="editMyAsins" class="btn btn-sm btn-success mb-1" value="My ASINs" />
+            <input type="button" id="editCategories" class="btn btn-sm btn-secondary" value="Categories" />
           </div>
         </div>
       </div>
@@ -189,7 +204,7 @@
       <div class="modal-dialog modal-sm">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Edit ASINs list</h5>
+            <h5 class="modal-title"></h5>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -250,6 +265,41 @@
         </div>
       </div>
     </div>
+
+    <div class="modal fade" id="categoriesDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog">
+        <form class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Categories</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <table class="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th>
+                    Color
+                  </th>
+                  <th>
+                    Description
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+
 
     <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center" style="
       position: fixed;

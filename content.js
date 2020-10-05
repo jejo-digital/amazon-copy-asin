@@ -6,11 +6,11 @@ const PRODUCT_WITH_NOT_COPIED_ASIN_IMAGE_BORDER_COLOR = 'red';
 
 const SPONSORED_PRODUCT_IMAGE_OUTLINE_STYLE = '5px solid yellow';
 
-const ORGANIC_PRODUCT_NUMBER_COLOR = 'lime';
-const SPONSORED_PRODUCT_NUMBER_COLOR = 'red';
+const ORGANIC_PRODUCT_POSITION_COLOR = 'lime';
+const SPONSORED_PRODUCT_POSITION_COLOR = 'red';
 const LETTER_FOR_FIRST_GROUP_OF_SPONSORED_PRODUCTS = 'A';
-
-const MY_PRODUCT_COLOR = 'limegreen';
+const POSITIONS_CALCULATION_STOPPED_TEXT = 'N/A';
+const POSITIONS_CALCULATION_STOPPED_COLOR = 'brown';
 
 const UNIQUE_STRING = 'd9735ea58f704800b5c9ae4fcc046b19';
 const PRODUCT_BLOCK_SELECTOR = 'div:not([data-asin=""])[data-asin]';
@@ -37,15 +37,17 @@ let asinsThatHaveNotes;
 
 let myAsins;
 
+let categoryDescriptions;
+
 let options;
 
 // info about products on page
 const products = [];
 
 // for showing product positions on page
-let organicProductNumber = 1;
-let sponsoredProductNumber = 1;
-let isNeedNewGroupOfSponsoredProducts = true;
+let organicProductPosition;
+let sponsoredProductPosition;
+let isNeedNewGroupOfSponsoredProducts;
 let letterForCurrentGroupOfSponsoredProducts;
 
 let asin; // just temp value
@@ -53,6 +55,7 @@ let asin; // just temp value
 let asinDialog;
 let asinDialogTextarea;
 
+let isCalculatingPositions;
 
 // get some data from BG page
 const asinsPromise = new Promise(function(resolve) {
@@ -82,21 +85,30 @@ const myAsinsPromise = new Promise(function(resolve) {
     resolve();
   });
 });
-const optionsPromise = new Promise(function(resolve) {
+const storagePromise = new Promise(function(resolve) {
   chrome.storage.sync.get({
     options: DEFAULT_OPTIONS,
+    categoryDescriptions: {},
   }, function(storage) {
     l('storage.get()', storage);
     options = storage.options;
+    categoryDescriptions = storage.categoryDescriptions;
     resolve();
   });
 });
 
-// wait for all
+// DCL event
 const dclPromise = new Promise(function(resolve) {
-  document.addEventListener('DOMContentLoaded', () => resolve());
+  if(document.readyState !== 'loading') {
+    resolve();
+  }
+  else {
+    document.addEventListener('DOMContentLoaded', () => resolve());
+  }
 });
-Promise.all([asinsPromise, notesPromise, myAsinsPromise, optionsPromise, dclPromise]).then(function() {
+
+// wait for all data & DCL event
+Promise.all([asinsPromise, notesPromise, myAsinsPromise, storagePromise, dclPromise]).then(function() {
   l('Promise.all()');
 
   // process product blocks already on page
@@ -113,6 +125,7 @@ Promise.all([asinsPromise, notesPromise, myAsinsPromise, optionsPromise, dclProm
   asinDialog = document.body.lastElementChild;
   asinDialogTextarea = asinDialog.querySelector('textarea');
   asinDialog.querySelector('form').addEventListener('submit', onDialogSubmit);
+  updateCategoryDescriptionsInDialog();
 
 
   // wait for new products
@@ -134,10 +147,15 @@ Promise.all([asinsPromise, notesPromise, myAsinsPromise, optionsPromise, dclProm
           target.children.length > 0) {
         processProductBlock(target);
       }
+      else if (target.classList.contains('a-carousel')) {
+        l('new carousel', target);
+        Array.from(target.children).forEach(processProductBlock);
+      }
       else {
-        if (target.classList.contains('a-carousel')) {
-          l('new carousel', target);
-          Array.from(target.children).forEach(processProductBlock);
+        const addedNode = mutationRecord.addedNodes[0];
+        if (addedNode !== undefined && addedNode.classList !== undefined && addedNode.classList.contains('s-result-item') && addedNode.classList.contains('s-asin')) {
+          l('new search item');
+          processProductBlock(addedNode);
         }
         else {
           l('unused mutation record');
@@ -148,8 +166,12 @@ Promise.all([asinsPromise, notesPromise, myAsinsPromise, optionsPromise, dclProm
 });
 
 
-// search result page?
-const isSRP = location.pathname === '/s';
+
+
+detectNeedOfPositionsCalculating();
+resetPositionsData();
+
+
 
 
 // toolbar with buttons
@@ -174,9 +196,8 @@ toolbarTemplate.innerHTML = `
     font-size: 20px;
     line-height: normal;
     display: none;
-    vertical-align: top;
   "></span>
-  <span title="Categories" style="
+  <span style="
     height: 32px;
     display: inline-flex;
     position: relative;
@@ -199,7 +220,7 @@ const DIALOG_HTML = `
     position: fixed;
     top: 0;
     bottom: 0;
-    width: 300px;">
+    width: 430px;">
     <input type="button" style="
       background-color: transparent;
       position: absolute;
@@ -221,28 +242,17 @@ const DIALOG_HTML = `
           margin-bottom: 10px;
           display: flex;
           flex-direction: column;
-          height: 65px;
-          flex-wrap: wrap;
-          text-transform: capitalize;">
-          ${CATEGORIES.map(category => `
-            <label>
-              <input type="checkbox" data-category="${category}" />
-              ${getCategoryBadgeHTML(category, `
-                display: inline-block;
-                vertical-align: middle;
-              `)}
-              ${category}
-            </label>
-          `).join('')}
+          height: 66px;
+          flex-wrap: wrap;">
         </div>
         <div>
-          <label style="font-weight: normal;">
+          <label style="
+            font-weight: normal;
+            margin-right: 10px;">
             Notes:
-            <br />
             <textarea style="
               margin-left: 10px;
-              width: 255px;
-              height: 139px;" autofocus></textarea>
+              height: 200px;" autofocus></textarea>
           </label>
         </div>
       </main>
@@ -260,8 +270,11 @@ const DIALOG_HTML = `
 function processProductBlock(productBlock) {
   n(); l('processProductBlock()', productBlock);
 
+  const isCarouselItem = productBlock.classList.contains('a-carousel-card');
+  const isInsideCarouselItem = productBlock.parentElement.classList.contains('a-carousel-card');
+
   // hacks for carousel items
-  if (productBlock.nodeName === 'LI') {
+  if (isCarouselItem) {
     productBlock = productBlock.firstElementChild;
     l('adjust 1');
     if (productBlock?.nodeName === 'STYLE') {
@@ -280,26 +293,15 @@ function processProductBlock(productBlock) {
     return;
   }
 
-  // 'Your Browsing History' carousel
+  // skip 'Your Browsing History' item
   if (productBlock.nodeName === 'SPAN') {
-    l('SPAN');
-    productBlock = productBlock.parentElement;
-
-    productBlock.style.position = 'relative';
-
-    prepareProductBlock(productBlock, productBlock, 'beforeEnd')
-
-    productBlock.lastElementChild.style.right = '0';
-    productBlock.lastElementChild.style.bottom = '0';
-
-    // mark block
-    productBlock.firstElementChild.classList.add(UNIQUE_STRING);
-
+    l('YBH SPAN');
     return;
   }
 
+  let el; // temp var
+
   // find place to inject toolbar
-  let el;
   for (const selector of BEFORE_TOOLBAR_ELEMENT_SELECTORS) {
     el = productBlock.querySelector(selector);
     if (el !== null) {
@@ -328,18 +330,10 @@ function processProductBlock(productBlock) {
   // mark block
   productBlock.classList.add(UNIQUE_STRING);
 
-  prepareProductBlock(productBlock, el, 'afterEnd');
-}
-
-
-
-
-function prepareProductBlock(productBlock, insertToolbarElem, position) {
   const toolbar = toolbarTemplate.cloneNode(true);
-  insertToolbarElem.insertAdjacentElement(position, toolbar);
+  el.insertAdjacentElement('afterEnd', toolbar);
 
   // try to find ASIN
-  let el;
   let asin;
   el = toolbar.closest(PRODUCT_BLOCK_SELECTOR);
   if (el === null) {
@@ -443,36 +437,45 @@ function prepareProductBlock(productBlock, insertToolbarElem, position) {
     product.isSponsored = true;
   }
 
-  // show product number(position) on search result page only
-  if (isSRP) {
+  // show product position only for not carousel items
+  if (isCarouselItem || isInsideCarouselItem) {
+    l('skip product in ranking');
+  }
+  else {
     const positionSpan = toolbar.children[2];
-    if (isSponsoredProduct) {
-      if (isNeedNewGroupOfSponsoredProducts) {
-        isNeedNewGroupOfSponsoredProducts = false;
-        if (letterForCurrentGroupOfSponsoredProducts === undefined) {
-          // first group
-          letterForCurrentGroupOfSponsoredProducts = LETTER_FOR_FIRST_GROUP_OF_SPONSORED_PRODUCTS;
+    if (isCalculatingPositions) {
+      if (isSponsoredProduct) {
+        if (isNeedNewGroupOfSponsoredProducts) {
+          isNeedNewGroupOfSponsoredProducts = false;
+          if (letterForCurrentGroupOfSponsoredProducts === undefined) {
+            // first group
+            letterForCurrentGroupOfSponsoredProducts = LETTER_FOR_FIRST_GROUP_OF_SPONSORED_PRODUCTS;
+          }
+          else {
+            // get next letter for not first group
+            letterForCurrentGroupOfSponsoredProducts = String.fromCharCode(letterForCurrentGroupOfSponsoredProducts.charCodeAt() + 1);
+          }
         }
-        else {
-          // get next letter for not first group
-          letterForCurrentGroupOfSponsoredProducts = String.fromCharCode(letterForCurrentGroupOfSponsoredProducts.charCodeAt() + 1);
-        }
-      }
 
-      positionSpan.textContent = letterForCurrentGroupOfSponsoredProducts + sponsoredProductNumber++;
-      positionSpan.style.color = SPONSORED_PRODUCT_NUMBER_COLOR;
-    }
-    else {
-      isNeedNewGroupOfSponsoredProducts = true;
-
-      // skip pseudo-sponsored products
-      if (productBlock.closest('[cel_widget_id=MAIN-SHOPPING_ADVISER]') === null) {
-        positionSpan.textContent = organicProductNumber++;
-        positionSpan.style.color = ORGANIC_PRODUCT_NUMBER_COLOR;
+        positionSpan.textContent = letterForCurrentGroupOfSponsoredProducts + sponsoredProductPosition++;
+        positionSpan.style.color = SPONSORED_PRODUCT_POSITION_COLOR;
       }
       else {
-        product.isPseudoSponsored = true;
+        isNeedNewGroupOfSponsoredProducts = true;
+
+        // skip pseudo-sponsored products
+        if (productBlock.closest('[cel_widget_id=MAIN-SHOPPING_ADVISER]') === null) {
+          positionSpan.textContent = organicProductPosition++;
+          positionSpan.style.color = ORGANIC_PRODUCT_POSITION_COLOR;
+        }
+        else {
+          product.isPseudoSponsored = true;
+        }
       }
+    }
+    else {
+      positionSpan.textContent = POSITIONS_CALCULATION_STOPPED_TEXT;
+      positionSpan.style.color = POSITIONS_CALCULATION_STOPPED_COLOR;
     }
   }
   products.push(product);
@@ -485,7 +488,7 @@ function prepareProductBlock(productBlock, insertToolbarElem, position) {
 
 
 
-// listen for toolbar and clicks of close buttons in properties dialog
+// listen for clicks of close buttons in properties dialog, pagination clicks and toolbar clicks
 document.addEventListener('click', async function({target: elem}) {
   l(elem);
 
@@ -496,6 +499,24 @@ document.addEventListener('click', async function({target: elem}) {
   }
 
   const parent = elem.parentElement;
+
+  if (parent.parentElement.classList.contains('a-pagination')) {
+    // detect navigating only to next page
+    if (parent.matches('li.a-selected + li.a-normal') || parent.matches('li.a-selected ~ li.a-last')) {
+      l('next page');
+      // just continue calculating positions on next page
+    }
+    else {
+      l('not next page');
+      // user navigated to not next page, we need to stop calculating positions unless it is first page
+      isCalculatingPositions = !elem.href.includes('page');
+      if (isCalculatingPositions) {
+        l('first page');
+        resetPositionsData();
+      }
+    }
+    return;
+  }
 
   // react only to toolbar buttons
   if (!(elem.nodeName === 'IMG' && parent.classList.contains(UNIQUE_STRING))) {
@@ -639,6 +660,13 @@ chrome.runtime.onMessage.addListener(function(msg) {
       updateAllProductBlocks(updateMyAsinsPartsOfProductBlock);
     break;
 
+    case 'category_descriptions':
+      categoryDescriptions = msg.payload.categoryDescriptions;
+
+      updateCategoryDescriptionsInDialog();
+      updateAllProductBlocks(updateCategoryPartsOfProductBlock);
+    break;
+
     default:
       l('message not processed');
     break;
@@ -683,9 +711,7 @@ function updateMainPartsOfProductBlock(product) {
   product.copyAsinImage.src = isAsinCopied ? successImageURL : copyImageURL;
 
   // show product position
-  if (isSRP) {
-    product.positionSpan.style.display = options.isShowProductPositions ? '' : 'none';
-  }
+  product.positionSpan.style.display = options.isShowProductPositions ? '' : 'none';
 }
 
 
@@ -712,17 +738,20 @@ function updateNotesPartsOfProductBlock(product) {
 function updateCategoryPartsOfProductBlock(product) {
   // show ASIN categories
   const categories = asins[product.asin]?.categories;
-  let categoriesStr;
+  let categoriesHTML;
   if (categories === undefined) {
-    categoriesStr = '';
+    categoriesHTML = '';
   }
   else {
-    categoriesStr = CATEGORIES.filter(category => !!categories[category]).map(category => getCategoryBadgeHTML(category, `
-      margin-right: 1px;
-      margin-bottom: 1px;
-    `)).join('');
+    categoriesHTML = CATEGORY_NAMES.filter(categoryName => !!categories[categoryName]).map(categoryName => getCircleHTML(categoryName, {
+      styles: `
+        margin-right: 1px;
+        margin-bottom: 1px;
+      `,
+      title: `${categoryName}: ${categoryDescriptions[categoryName] ?? categoryName}`,
+    })).join('');
   }
-  product.categoriesSpan.innerHTML = categoriesStr;
+  product.categoriesSpan.innerHTML = categoriesHTML;
 }
 
 
@@ -735,3 +764,54 @@ function updateMyAsinsPartsOfProductBlock(product) {
   // hide product from 'My ASINs' list
   product.block.style.visibility = (options.isHideMyProducts && isMyASIN) ? 'hidden' : '';
 }
+
+
+
+
+function updateCategoryDescriptionsInDialog() {
+  asinDialog.querySelector('main > div').innerHTML = CATEGORY_NAMES.map(function(categoryName) {
+    const categoryText = categoryDescriptions[categoryName] ?? categoryName;
+    return `
+      <label title="${categoryName}: ${categoryText}" style="
+        max-width: 140px;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;">
+        <input type="checkbox" data-category="${categoryName}" />
+        ${getCircleHTML(categoryName, {
+          styles: `
+            display: inline-block;
+            vertical-align: middle;
+          `,
+        })}
+        ${categoryText}
+      </label>
+    `;
+  }).join('');
+}
+
+
+
+
+function resetPositionsData() {
+  l('resetPositionsData()');
+
+  organicProductPosition = 1;
+  sponsoredProductPosition = 1;
+  isNeedNewGroupOfSponsoredProducts = true;
+  letterForCurrentGroupOfSponsoredProducts = undefined;
+}
+
+// if page URL does not include 'page' string, then this is first page
+function detectNeedOfPositionsCalculating() {
+  isCalculatingPositions = !document.location.search.includes('page');
+}
+
+window.onpopstate = function() {
+  l('window.onpopstate()', document.location.search);
+
+  detectNeedOfPositionsCalculating();
+  if (isCalculatingPositions) {
+    resetPositionsData();
+  }
+};

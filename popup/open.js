@@ -58,6 +58,10 @@ openTopButton.addEventListener('click', async function() {
   try {
     const result = await obtainAndSaveBsrs();
     l('resolve', result);
+
+    detectTopAsins();
+    isNeedToClearTopAsins = false;
+    createAsinTabs(getParentTopAsins());
   }
   catch(err) {
     l('reject', err);
@@ -71,8 +75,6 @@ openTopButton.addEventListener('click', async function() {
       return;
     }
   }
-
-  createAsinTabs(getTopAsins());
 });
 
 

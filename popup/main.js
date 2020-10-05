@@ -7,7 +7,13 @@ let selectedCategory;
 
 // asins for selected marketplace
 let asins = {};
+
+// asins for selected marketplace and category
 let categoryAsins;
+let topAsins = {};
+
+let myAsins;
+let categoryDescriptions;
 
 
 const marketplacesTableBody = document.querySelector('#marketplaces tbody');
@@ -61,13 +67,13 @@ marketplacesTableBody.innerHTML = marketplaces.map(marketplace => `
   }
 
   // category in URL?
-  const urlCategory = urlSearchParams.get('category');
+  const urlCategory = urlSearchParams.get('category')?.toLowerCase() ?? null;
   l(urlCategory);
   if (urlCategory == null) {
-    selectedCategory = '';
+    selectedCategory = NO_CATEGORY;
   }
   else {
-    selectedCategory = CATEGORIES.includes(urlCategory) ? urlCategory : '';
+    selectedCategory = CATEGORY_NAMES.includes(urlCategory) ? urlCategory : NO_CATEGORY;
   }
   l(selectedCategory);
 
@@ -93,64 +99,152 @@ marketplacesTableBody.innerHTML = marketplaces.map(marketplace => `
 
 
 
-// show categories
-categoriesTableBody.innerHTML = CATEGORIES.map(category => `
+// show category names in table on main page
+categoriesTableBody.innerHTML = CATEGORY_NAMES.map(category => `
   <tr>
-    <td>
-      ${getCategoryBadgeHTML(category, `
-        display: inline-block;
-        vertical-align: middle;
-        position: relative;
-        top: -2px;
-      `)}
-      ${category}
+    <td class="text-truncate">
+      ${getCircleHTML(category, {
+        styles: `
+          display: inline-block;
+          vertical-align: middle;
+          position: relative;
+          top: -2px;
+        `,
+      })}
+      <span>${category}</span>
     </td>
   </tr>
 `).join('');
 
 // select category from URL, if exists
-if (selectedCategory === '') {
-  categoriesTable.firstElementChild.firstElementChild.classList.add('table-active');
+if (selectedCategory === NO_CATEGORY) {
+  categoriesTable.firstElementChild.nextElementSibling.classList.add('table-active');
 }
 else {
-  categoriesTableBody.children[CATEGORIES.indexOf(selectedCategory)].classList.add('table-active');
+  categoriesTableBody.children[CATEGORY_NAMES.indexOf(selectedCategory)].classList.add('table-active');
 }
+
+
+// show category names in table in dialog
+categoriesDialogTableBody.innerHTML = CATEGORY_NAMES.map(category => `
+  <tr>
+    <td class="align-middle">
+      ${getCircleHTML(category, {
+        styles: `
+          display: inline-block;
+          vertical-align: middle;
+          position: relative;
+          top: -2px;
+        `,
+      })}
+      <span>${category}</span>
+    </td>
+    <td>
+      <input type="text" class="w-100">
+    </td>
+  </tr>
+`).join('');
+
+// get and show category descriptions in table on main page
+chrome.storage.sync.get({
+  categoryDescriptions: {},
+}, function(storage) {
+  l('storage.get()', storage);
+
+  categoryDescriptions = storage.categoryDescriptions;
+  updateCategoryDescriptionsInTable();
+});
 
 
 
 
 const port = chrome.runtime.connect();
+port.postMessage({
+  id: 'get_my_asins',
+});
 port.onMessage.addListener(async function(msg) {
   n(); l('port.onMessage()', msg);
 
   switch (msg.id) {
     case 'marketplace_asins':
-      // close possible opened Edit dialog
-      $(document.querySelector('#asinsDialog.show')).modal('hide');
+      // close possible opened dialog
+      $(document.querySelector('#textStringsDialog.show')).modal('hide');
 
       asins = msg.payload.asins ?? {};
+
+      if (isNeedToClearTopAsins) {
+        clearTopAsins();
+      }
+      else {
+        isNeedToClearTopAsins = true;
+      }
+
       filterAsinsByCategory();
       sortCategoryAsinsByBSR();
-      showCategoryAsins();
-      asinButtonsGroup.disabled = false;
-      clearMarketplaceBsrsButton.disabled = false;
-    break;
 
-    case 'my_asins':
-      const asinsText = await showTextStringsDialog(msg.payload.asins);
-      l(asinsText);
-      if (asinsText === null) {
+      asinButtonsGroup.disabled = false;
+      deleteMarketplaceScrapedDataButton.disabled = false;
+
+      if (myAsins === undefined) {
+        alert('Impossible disaster!');
         return;
       }
 
-      const newAsins = sanitizeTextToArray(asinsText);
-      l(newAsins);
-      port.postMessage({
-        id: 'set_my_asins',
-        payload: {
-          asins: newAsins,
-        },
-      });
+      showCategoryAsins();
+    break;
+
+    case 'my_asins':
+      updateMyAsins(msg.payload.asins);
+    break;
+
+    default:
+      l('message not processed');
+    break;
+  }
+});
+
+
+
+
+chrome.runtime.onMessage.addListener(function(msg) {
+  n(); l('runtime.onMessage()', msg);
+
+  switch (msg.id) {
+    case 'top_asins':
+      const {marketplace, category, asins: newTopAsins} = msg.payload;
+      if (!(marketplace === selectedMarketplace && category === selectedCategory)) {
+        // top asins for other category or marketplace
+        l('skip top ASINs');
+        return;
+      }
+      l('store top ASINs');
+      topAsins = newTopAsins;
+      isNeedToClearTopAsins = false;
+    break;
+
+    case 'my_asins':
+      // close possible opened dialog
+      $(document.querySelector('#textStringsDialog.show')).modal('hide');
+
+      updateMyAsins(msg.payload.asins);
+    break;
+
+    case 'category_descriptions':
+      // close possible opened dialog
+      $(document.querySelector('#categoriesDialog.show')).modal('hide');
+
+      categoryDescriptions = msg.payload.categoryDescriptions;
+      updateCategoryDescriptionsInTable();
+    break;
+
+    case 'content_script_options':
+      options = msg.payload.options;
+      showContentScriptOptions();
+    break;
+
+    case 'popup_options':
+      options = msg.payload.options;
+      showPopupOptions();
     break;
 
     default:
@@ -164,7 +258,7 @@ port.onMessage.addListener(async function(msg) {
 
 function filterAsinsByCategory() {
   let entries = Object.entries(asins);
-  if (selectedCategory !== '') {
+  if (selectedCategory !== NO_CATEGORY) {
     entries = entries.filter(([, asinData]) => asinData.categories?.[selectedCategory] ?? false);
   }
   categoryAsins = entries.map(([asinValue]) => asinValue);
@@ -180,43 +274,64 @@ function showCategoryAsins() {
   const getParentAsinAbsentValueHTML = getAbsentValueHTML('Parent ASIN');
 
   asinsTableBody.innerHTML = categoryAsins.map(function(asin) {
-    let bsr = asins[asin].bsr;
-    if (bsr === undefined) {
-      // bsr obtaining was never performed
-      bsr = NEVER_SCRAPED_SYMBOL;
-    }
-    else if (bsr === null) {
-      // bsr obtained, but was absent
-      bsr = getBsrAbsentValueHTML;
-    }
-    else if (typeof bsr === 'string') {
-      // bsr obtained with error
-      bsr = `<div class="text-center" title="${bsr}">\u26A0</div>`;
+    const asinObj = asins[asin];
+
+    let asinHTML = asinObj.isCopied ? asin : `<s>${asin}</s>`;
+    if (myAsins.includes(asin)) {
+      asinHTML = `<span style="
+        background-color: ${MY_PRODUCT_COLOR};
+        border-radius: 0.2rem;
+      " title="ASIN from 'My ASINs' list">${asinHTML}</span>`;
     }
 
-    let parentAsin = asins[asin].parentAsin;
-    if (parentAsin === undefined) {
-      // obtaining was never performed
-      parentAsin = NEVER_SCRAPED_SYMBOL;
+    let bsrHTML = asinObj.bsr;
+    if (bsrHTML === undefined) {
+      // bsr obtaining was never performed
+      bsrHTML = NEVER_SCRAPED_SYMBOL;
     }
-    else if (parentAsin === null) {
+    else if (bsrHTML === null) {
       // bsr obtained, but was absent
-      parentAsin = getParentAsinAbsentValueHTML;
+      bsrHTML = getBsrAbsentValueHTML;
     }
-    else if (parentAsin === asin) {
-      parentAsin = `<b title="Parent ASIN is equal to main ASIN">${parentAsin}</b>`;
+    else if (typeof bsrHTML === 'string') {
+      // bsr obtained with error
+      bsrHTML = `<div class="text-center" title="${bsrHTML}">\u26A0</div>`;
+    }
+
+    let parentAsinHTML = asinObj.parentAsin;
+    if (parentAsinHTML === undefined) {
+      // obtaining was never performed
+      parentAsinHTML = NEVER_SCRAPED_SYMBOL;
+    }
+    else if (parentAsinHTML === null) {
+      // bsr obtained, but was absent
+      parentAsinHTML = getParentAsinAbsentValueHTML;
+    }
+    else if (parentAsinHTML === asin) {
+      parentAsinHTML = `<b title="Parent ASIN is equal to main ASIN">${parentAsinHTML}</b>`;
+    }
+
+    let inTopClass;
+    if (topAsins[asin] === undefined) {
+      inTopClass = '';
+    }
+    else if (topAsins[asin] === null) {
+      inTopClass = 'bg-warning';
+    }
+    else {
+      inTopClass = 'bg-success';
     }
 
     return `
-      <tr>
+      <tr class="${inTopClass}">
         <td>
-          ${asins[asin].isCopied ? asin : `<s>${asin}</s>`}
+          ${asinHTML}
         </td>
         <td>
-          ${bsr}
+          ${bsrHTML}
         </td>
         <td>
-          ${parentAsin}
+          ${parentAsinHTML}
         </td>
       </tr>
     `;
@@ -264,9 +379,10 @@ categoriesTable.addEventListener('click', function({target}) {
     return;
   }
 
-  selectedCategory = clickedItemInfo.bodyIndex === 0 ? '' : CATEGORIES[clickedItemInfo.rowIndex];
+  selectedCategory = clickedItemInfo.bodyIndex === 0 ? NO_CATEGORY : CATEGORY_NAMES[clickedItemInfo.rowIndex];
   l(selectedCategory);
 
+  clearTopAsins();
   filterAsinsByCategory();
   sortCategoryAsinsByBSR();
   showCategoryAsins();
@@ -305,28 +421,15 @@ function getItemInfoFromElem(elem) {
 
 
 
-document.querySelector('#clearAllAsins').addEventListener('click', async function() {
+document.querySelector('#deleteAllAsins').addEventListener('click', async function() {
   if (!await showConfirmDialog('ALL ASINs in ALL marketplaces will be deleted. Proceed?')) {
     return;
   }
 
   port.postMessage({
-    id: 'clear_all_asins',
+    id: 'delete_all_asins',
   });
 });
-
-
-
-
-function saveAsins() {
-  port.postMessage({
-    id: 'set_marketplace_asins',
-    payload: {
-      marketplace: selectedMarketplace,
-      asins,
-    },
-  });
-}
 
 
 
@@ -339,6 +442,10 @@ Object.defineProperty(window, 's', {
     l('selectedCategory', selectedCategory);
     l('asins', asins);
     l('categoryAsins', categoryAsins);
+    l('myAsins', myAsins);
+    l('topAsins', topAsins);
+    l('isNeedToClearTopAsins', isNeedToClearTopAsins);
+    l('categoryDescriptions', categoryDescriptions);
     l('options', options);
     console.groupEnd();
   },

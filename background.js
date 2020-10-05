@@ -9,8 +9,8 @@ let myAsins;
 // Amazon tabs where content script started
 const amazonTabs = new Map();
 
-// popups & tabs with popup page(just 'popups' for simplicity)
-const popupViews = new Map();
+// popups & tabs with popup page
+const popupTabs = new Map();
 
 
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
@@ -34,7 +34,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
       ensureDbStructure(marketplace, asin);
       Object.assign(asins[marketplace][asin], data);
       saveAsins(function() {
-        updateViewsWithAsins(marketplace);
+        updateAmazonTabsAndPopupsWithAsins(marketplace);
       });
     }
     break;
@@ -42,7 +42,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     case 'content_script_options':
       const {options} = msg.payload;
       // send options to Amazon tabs
-      for (const [tabId] of amazonTabs) {
+      for (const tabId of amazonTabs.keys()) {
         chrome.tabs.sendMessage(tabId, {
           id: 'content_script_options',
           payload: {
@@ -106,7 +106,7 @@ chrome.storage.sync.get({
 
 
 function saveAsins(callback) {
-  chrome.storage.sync.set({asins}, callback);
+  chrome.storage.sync.set({asins}, () => callback());
 }
 
 
@@ -155,7 +155,7 @@ chrome.contextMenus.create({
 
 
 
-// communicating with popups & popup tabs
+// communicating with popups
 chrome.runtime.onConnect.addListener(function(port) {
   l('runtime.onConnect()', port);
 
@@ -166,7 +166,7 @@ chrome.runtime.onConnect.addListener(function(port) {
       case 'get_marketplace_asins': {
         const {marketplace} = msg.payload;
         // associate port with its marketplace
-        popupViews.set(port, marketplace);
+        popupTabs.set(port, marketplace);
 
         port.postMessage({
           id: 'marketplace_asins',
@@ -180,15 +180,13 @@ chrome.runtime.onConnect.addListener(function(port) {
       case 'set_marketplace_asins': {
         const {marketplace, asins: newAsins} = msg.payload;
         asins[marketplace] = newAsins;
-        saveAsins(function() {
-          updateViewsWithAsins(marketplace);
-        });
+        saveAsins(() => updateAmazonTabsAndPopupsWithAsins(marketplace));
       }
       break;
 
-      case 'clear_all_asins':
+      case 'delete_all_asins':
         asins = {};
-        saveAsins(updateViewsWithAsins);
+        saveAsins(updateAmazonTabsAndPopupsWithAsins);
       break;
 
       case 'get_my_asins':
@@ -202,7 +200,17 @@ chrome.runtime.onConnect.addListener(function(port) {
 
       case 'set_my_asins':
         myAsins = msg.payload.asins;
-        chrome.storage.sync.set({myAsins}, updateAmazonTabsWithMyAsins);
+        chrome.storage.sync.set({myAsins}, () => sendDataToAmazonTabsAndPopups('my_asins', {
+          asins: myAsins,
+        }));
+      break;
+
+      case 'set_category_descriptions': {
+        const categoryDescriptions = msg.payload.categoryDescriptions;
+        chrome.storage.sync.set({categoryDescriptions}, () => sendDataToAmazonTabsAndPopups('category_descriptions', {
+          categoryDescriptions,
+        }));
+      }
       break;
 
       default:
@@ -214,7 +222,7 @@ chrome.runtime.onConnect.addListener(function(port) {
   port.onDisconnect.addListener(function(port) {
     l('port.onDisconnect()', port);
 
-    popupViews.delete(port);
+    popupTabs.delete(port);
   });
 });
 
@@ -222,10 +230,10 @@ chrome.runtime.onConnect.addListener(function(port) {
 
 
 // send marketplace ASINs to tabs showing data for this marketplace. if marketplace parameter is absent - send to all tabs
-function updateViewsWithAsins(marketplace) {
-  l('updateViewsWithAsins()', marketplace);
+function updateAmazonTabsAndPopupsWithAsins(marketplace) {
+  l('updateAmazonTabsAndPopupsWithAsins()', marketplace);
 
-  // tabs with Amazon page 
+  // tabs with Amazon page
   for (const [tabId, tabMarketplace] of amazonTabs) {
     if (marketplace === undefined || tabMarketplace === marketplace) {
       chrome.tabs.sendMessage(tabId, {
@@ -238,7 +246,7 @@ function updateViewsWithAsins(marketplace) {
   }
 
   // popups
-  for (const [popupPort, popupMarketplace] of popupViews) {
+  for (const [popupPort, popupMarketplace] of popupTabs) {
     if (marketplace === undefined || popupMarketplace === marketplace) {
       popupPort.postMessage({
         id: 'marketplace_asins',
@@ -270,18 +278,22 @@ function updateAmazonTabsWithAsinsThatHaveNotes() {
 
 
 
-// send 'my ASINs' to Amazon tabs
-function updateAmazonTabsWithMyAsins() {
-  l('updateAmazonTabsWithMyAsins()');
+// send data to Amazon tabs and popups
+function sendDataToAmazonTabsAndPopups(id, payload) {
+  l('sendDataToAmazonTabsAndPopups()', id, payload);
 
+  const msg = {
+    id,
+    payload,
+  };
+
+  // tabs with Amazon page
   for (const tabId of amazonTabs.keys()) {
-    chrome.tabs.sendMessage(tabId, {
-      id: 'my_asins',
-      payload: {
-        asins: myAsins,
-      },
-    });
+    chrome.tabs.sendMessage(tabId, msg);
   }
+
+  // popups
+  chrome.runtime.sendMessage(msg);
 }
 
 
@@ -289,6 +301,24 @@ function updateAmazonTabsWithMyAsins() {
 
 function getAsinsThatHaveNotes() {
   return Object.keys(notes);
+}
+
+
+
+
+// user is in tab with content script but navigating not to search URL - delete tab from 'amazonTabs'
+chrome.tabs.onUpdated.addListener(function(tabId, changeInfo) {
+  if (changeInfo.status === chrome.tabs.TabStatus.LOADING && amazonTabs.has(tabId) && changeInfo.url !== undefined && !isAmazonSearchURL(changeInfo.url)) {
+    l('tabs.onUpdated() delete');
+    amazonTabs.delete(tabId);
+  }
+});
+
+
+
+
+function isAmazonSearchURL(url) {
+  return /https:\/\/www\.amazon\.[^/]+\/s\?/.test(url);
 }
 
 
@@ -302,7 +332,7 @@ Object.defineProperty(window, 's', {
     l('notes', notes);
     l('myAsins', myAsins);
     l('amazonTabs', amazonTabs);
-    l('popupViews', popupViews);
+    l('popupTabs', popupTabs);
 
     chrome.storage.sync.get(function(items) {
       l('storage.get()', items);
