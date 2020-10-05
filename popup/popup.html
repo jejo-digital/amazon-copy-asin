@@ -1,0 +1,316 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Control panel</title>
+
+    <script src="../console.js"></script>
+    <script src="../const/background and popup.js"></script>
+    <script src="../const/content script and popup.js"></script>
+    <script src="../const/popup.js"></script>
+    <script src="../misc.js"></script>
+    <script src="../default options.js"></script>
+    <script src="../categories.js"></script>
+    <script src="../getCircleHTML.js"></script>
+    <script src="misc.js"></script>
+
+    <script src="lib/jquery-3.5.1.js"></script>
+    <script src="lib/bootstrap.js"></script>
+
+    <script defer src="descriptions.js"></script>
+    <script defer src="main.js"></script>
+    <script defer src="dialog.js"></script>
+    <script defer src="edit.js"></script>
+    <script defer src="open.js"></script>
+    <script defer src="scrape.js"></script>
+    <script defer src="copy.js"></script>
+    <script defer src="my ASINs.js"></script>
+    <script defer src="options.js"></script>
+
+    <link rel="stylesheet" href="lib/bootstrap.css">
+
+    <style>
+      body {
+        min-width: 760px;
+      }
+
+      input[type=number] {
+        width: 80px;
+      }
+
+      th {
+        text-align: center;
+      }
+
+      #categories td {
+        max-width: 140px;
+      }
+
+      #asins {
+        font-size: 0.8rem;
+      }
+
+      hr {
+        margin-top: .5rem;
+        margin-bottom: .5rem;
+      }
+    </style>
+  </head>
+  <body class="m-2">
+    <section class="d-flex">
+      <div class="mr-2">
+        <table id="marketplaces" class="table table-sm table-bordered table-hover">
+          <thead>
+            <tr>
+              <th>Markets</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mr-2">
+        <table id="categories" class="table table-sm table-bordered table-hover">
+          <thead>
+            <tr>
+              <th>Categories</th>
+            </tr>
+          </thead>
+          <tbody data-index="0">
+            <tr>
+              <td>
+                <span style="padding-left: 15px;">
+                  &nbsp;
+                  ALL
+                </span>
+              </td>
+            </tr>
+          </tbody>
+          <tbody data-index="1"></tbody>
+        </table>
+      </div>
+
+      <div class="d-flex flex-column mr-2">
+        <table id="asins" class="table table-sm table-bordered" style="width: 290px;">
+          <thead>
+            <tr>
+              <th style="width: 114px;">ASIN</th>
+              <th>BSR</th>
+              <th>Parent ASIN</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div>
+        <form>
+          <div class="form-check">
+            <b>Options</b>
+            </br>
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightCopiedProducts" data-product-category="copied">
+              Highlight copied products
+            </label>
+          </div>
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHideCopiedProducts" data-product-category="copied">
+              Hide copied products
+            </label>
+          </div>
+
+          <hr>
+
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightNotCopiedProducts" data-product-category="not-copied">
+              Highlight not-copied products
+            </label>
+          </div>
+
+          <hr>
+
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightSponsoredProducts" data-product-category="sponsored">
+              Highlight sponsored products
+            </label>
+          </div>
+          <div class="form-check">
+            <label class="form-check-label" title="Also hides pseudo-sponsored products">
+              <input class="form-check-input" type="checkbox" id="isHideSponsoredProducts" data-product-category="sponsored">
+              Hide sponsored products
+            </label>
+          </div>
+
+          <hr>
+
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHighlightMyProducts" data-product-category="my">
+              Highlight my products
+            </label>
+          </div>
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isHideMyProducts" data-product-category="my">
+              Hide my products
+            </label>
+          </div>
+
+          <hr>
+
+          <div class="form-check">
+            <label class="form-check-label">
+              <input class="form-check-input" type="checkbox" id="isShowProductPositions">
+              Show ranking/position on page
+            </label>
+          </div>
+        </form>
+
+        <hr>
+
+        <div class="d-flex">
+          <fieldset class="d-flex flex-column mr-1" disabled>
+            <div class="btn-group-vertical mb-1">
+              <input type="button" id="editCategoryAsins" class="btn btn-primary btn-sm" value="Edit">
+              <input type="button" id="obtainBsrs" class="btn btn-primary btn-sm" value="Sort by BSR">
+            </div>
+            <div class="btn-group-vertical mb-1">
+              <input type="button" id="copyTopParent" class="btn btn-primary btn-sm" value="Copy parent top ">
+              <input type="button" id="copyCommaSeparated" class="btn btn-primary btn-sm" value="Copy comma separated">
+              <input type="button" id="copyWithBsr" class="btn btn-primary btn-sm" value="Copy with BSR">
+            </div>
+            <div class="btn-group-vertical">
+              <input type="button" id="openTop" class="btn btn-primary btn-sm" value="Open top ">
+              <input type="button" id="openSelected" class="btn btn-primary btn-sm" value="Open selected">
+            </div>
+          </fieldset>
+          <div class="d-flex flex-column">
+            <div class="btn-group-vertical mb-1">
+              <input type="button" id="deleteAllAsins" class="btn btn-sm btn-danger" value="Clear all ASINs">
+              <button id="deleteMarketplaceScrapedData" class="btn btn-sm btn-danger" title="BSR and Parent ASIN" disabled>Clear market<br>scraped data</button>
+            </div>
+            <input type="button" id="editMyAsins" class="btn btn-sm btn-success mb-1" value="My ASINs">
+            <input type="button" id="editCategories" class="btn btn-sm btn-secondary" value="Categories">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal fade" id="textStringsDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"></h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <textarea rows="15" spellcheck="false" class="w-100"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="bsrProgressDialog" data-backdrop="static" data-keyboard="false" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Obtaining BSRs...</h5>
+          </div>
+          <div class="modal-body">
+            <div class="progress">
+              <div class="progress-bar" role="progressbar"></div>
+            </div>
+            <p class="h6 text-center"></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="alertDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-body">
+            <h6></h6>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="confirmDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-body">
+            <h6></h6>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" data-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="categoriesDialog" tabindex="-1" role="dialog">
+      <div class="modal-dialog">
+        <form class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Categories</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <table class="table table-sm table-bordered">
+              <thead>
+                <tr>
+                  <th>
+                    Color
+                  </th>
+                  <th>
+                    Description
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+
+
+    <div aria-live="polite" aria-atomic="true" class="d-flex justify-content-center align-items-center" style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1100;">
+      <div id="successToast" class="toast text-white bg-success" data-delay="2000" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-body"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

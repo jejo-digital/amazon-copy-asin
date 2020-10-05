@@ -236,7 +236,7 @@ function obtainBsrs() { // and parent asins
         }
 
       
-      }, i * options.bsrRequestsInterval)); // setTimeout
+      }, i * SCRAPE_REQUESTS_INTERVAL)); // setTimeout
     } // for
 
 

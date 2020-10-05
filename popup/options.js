@@ -9,56 +9,61 @@ chrome.storage.sync.get({
   l('storage.get()', storage);
 
   options = storage.options;
-  showContentScriptOptions();
-  showPopupOptions() 
+  showOptions();
 });
 
 
 
 
 const isHighlightCopiedProductsCheckbox = document.querySelector('#isHighlightCopiedProducts');
-const isHighlightNotCopiedProductsCheckbox = document.querySelector('#isHighlightNotCopiedProducts');
-const isHighlightSponsoredProductsCheckbox = document.querySelector('#isHighlightSponsoredProducts');
-const isHighlightMyProductsCheckbox = document.querySelector('#isHighlightMyProducts');
-
-const isHideSponsoredProductsCheckbox = document.querySelector('#isHideSponsoredProducts');
 const isHideCopiedProductsCheckbox = document.querySelector('#isHideCopiedProducts');
+
+const isHighlightNotCopiedProductsCheckbox = document.querySelector('#isHighlightNotCopiedProducts');
+
+const isHighlightSponsoredProductsCheckbox = document.querySelector('#isHighlightSponsoredProducts');
+const isHideSponsoredProductsCheckbox = document.querySelector('#isHideSponsoredProducts');
+
+const isHighlightMyProductsCheckbox = document.querySelector('#isHighlightMyProducts');
 const isHideMyProductsCheckbox = document.querySelector('#isHideMyProducts');
 
 const isShowProductPositionsCheckbox = document.querySelector('#isShowProductPositions');
 
-const bsrRequestsIntervalInput = document.querySelector('#bsrRequestsInterval');
 
 
 
-function showContentScriptOptions() {
-  l('showContentScriptOptions()');
+function showOptions() {
+  l('showOptions()');
 
   isHighlightCopiedProductsCheckbox.checked = options.isHighlightCopiedProducts;
-  isHighlightNotCopiedProductsCheckbox.checked = options.isHighlightNotCopiedProducts;
-  isHighlightSponsoredProductsCheckbox.checked = options.isHighlightSponsoredProducts;
-  isHighlightMyProductsCheckbox.checked = options.isHighlightMyProducts;
-
-  isHideSponsoredProductsCheckbox.checked = options.isHideSponsoredProducts;
   isHideCopiedProductsCheckbox.checked = options.isHideCopiedProducts;
+
+  isHighlightNotCopiedProductsCheckbox.checked = options.isHighlightNotCopiedProducts;
+
+  isHighlightSponsoredProductsCheckbox.checked = options.isHighlightSponsoredProducts;
+  isHideSponsoredProductsCheckbox.checked = options.isHideSponsoredProducts;
+
+  isHighlightMyProductsCheckbox.checked = options.isHighlightMyProducts;
   isHideMyProductsCheckbox.checked = options.isHideMyProducts;
 
   isShowProductPositionsCheckbox.checked = options.isShowProductPositions;
 }
 
-function showPopupOptions() {
-  l('showPopupOptions()');
-
-  bsrRequestsIntervalInput.valueAsNumber = options.bsrRequestsInterval;
-}
 
 
 
-
-// content script options change
+// options change
 document.querySelector('form').addEventListener('input', function({target: checkbox}) {
-  const optionName = checkbox.id;
-  options[optionName] = checkbox.checked;
+  // checkbox id is used as name in options
+  options[checkbox.id] = checkbox.checked;
+
+  // uncheck other checked checkbox in category
+  const otherCheckboxInCategory = document.querySelector(`:not(#${checkbox.id})[data-product-category="${checkbox.dataset.productCategory}"]`);
+  l(otherCheckboxInCategory);
+  if (checkbox.checked && otherCheckboxInCategory !== null && otherCheckboxInCategory.checked) {
+    otherCheckboxInCategory.checked = false;
+    options[otherCheckboxInCategory.id] = false;
+  }
+  l(options);
 
   // save options
   chrome.storage.sync.set({
@@ -66,33 +71,7 @@ document.querySelector('form').addEventListener('input', function({target: check
   }, function() {
     // send options to BG page and other popups(BG page will send it to content scripts)
     chrome.runtime.sendMessage({
-      id: 'content_script_options',
-      payload: {
-        options,
-      },
-    });
-  });
-});
-
-// popup options change
-bsrRequestsIntervalInput.addEventListener('change', function({target: input}) {
-  let val = input.valueAsNumber;
-  l(val);
-  if (Number.isNaN(val)) {
-    val = 0;
-    input.valueAsNumber = 0;
-  }
-  l(val);
-
-  options.bsrRequestsInterval = val;
-
-  // save options
-  chrome.storage.sync.set({
-    options,
-  }, function() {
-    // send options to BG page and other popups(they are not used in BG page)
-    chrome.runtime.sendMessage({
-      id: 'popup_options',
+      id: 'options',
       payload: {
         options,
       },

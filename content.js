@@ -187,11 +187,11 @@ toolbarTemplate.innerHTML = `
   <img width="25" height="25" title="Can't find ASIN" data-button-id="copy" src="${chrome.runtime.getURL('img/question.svg')}" style="
     min-width: 25px;
     cursor: not-allowed;
-  " />
+  ">
   <img width="25" height="25" data-button-id="props" style="
     cursor: pointer;
     display: none;
-  " />
+  ">
   <span title="Position" style="
     font-size: 20px;
     line-height: normal;
@@ -228,7 +228,7 @@ const DIALOG_HTML = `
       border: none;
       font-size: 23px;
       ${/mac/i.test(navigator.userAgent) ? 'left' : 'right'}: 0;"
-      class="dialog-cancel" value="&times;" />
+      class="dialog-cancel" value="&times;">
     <form method="dialog" style="margin-bottom: 0;">
       <header style="text-align: center;">
         ASIN <span></span> 
@@ -257,8 +257,8 @@ const DIALOG_HTML = `
         </div>
       </main>
       <footer style="text-align: right;">
-        <input type="button" class="dialog-cancel" value="Cancel" />
-        <input type="submit" value="Save" />
+        <input type="button" class="dialog-cancel" value="Cancel">
+        <input type="submit" value="Save">
       </footer>
     </form>
   </dialog>
@@ -327,7 +327,7 @@ function processProductBlock(productBlock) {
     }
   }
 
-  // mark block
+  // mark block as processed
   productBlock.classList.add(UNIQUE_STRING);
 
   const toolbar = toolbarTemplate.cloneNode(true);
@@ -374,6 +374,7 @@ function processProductBlock(productBlock) {
 
   if (asin === undefined) {
     // could not find ASIN
+    toolbar.remove();
     return;
   }
 
@@ -652,7 +653,7 @@ chrome.runtime.onMessage.addListener(function(msg) {
       updateAllProductBlocks(updateMyAsinsPartsOfProductBlock);
     break;
 
-    case 'content_script_options':
+    case 'options':
       options = msg.payload.options;
 
       updateAllProductBlocks(updateMainPartsOfProductBlock);
@@ -780,7 +781,7 @@ function updateCategoryDescriptionsInDialog() {
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;">
-        <input type="checkbox" data-category="${categoryName}" />
+        <input type="checkbox" data-category="${categoryName}">
         ${getCircleHTML(categoryName, {
           styles: `
             display: inline-block;

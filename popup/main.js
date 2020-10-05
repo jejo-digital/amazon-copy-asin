@@ -92,6 +92,10 @@ marketplacesTableBody.innerHTML = marketplaces.map(marketplace => `
     // emulate click
     setTimeout(function() {
       marketplacesTableBody.children[marketplaceIndex].firstElementChild.click();
+      // hide Markets table if marketplace is known, but only in popup(not in popup tab)
+      if (new URL(location.href).searchParams.has('popup')) {
+        marketplacesTableBody.parentElement.parentElement.style.display = 'none';
+      }
     });
   }
 }
@@ -237,14 +241,9 @@ chrome.runtime.onMessage.addListener(function(msg) {
       updateCategoryDescriptionsInTable();
     break;
 
-    case 'content_script_options':
+    case 'options':
       options = msg.payload.options;
-      showContentScriptOptions();
-    break;
-
-    case 'popup_options':
-      options = msg.payload.options;
-      showPopupOptions();
+      showOptions();
     break;
 
     default:

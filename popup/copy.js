@@ -72,15 +72,20 @@ document.querySelector('#copyWithBsr').addEventListener('click', function() {
 
 
 
-async function copyArrayToClipboard(array, itemName, separator) {
+function copyArrayToClipboard(array, itemName, separator) {
   l('copyArrayToClipboard()', array, itemName, JSON.stringify(separator).slice(1, -1));
 
-  try {
-    await navigator.clipboard.writeText(array.join(separator));
-
+  const textarea = document.createElement('textarea');
+  document.body.append(textarea);
+  textarea.value = array.join(separator);
+  textarea.select();
+  const result = document.execCommand('copy');
+  l('document.execCommand()', result);
+  textarea.remove();
+  if (result) {
     showSuccessToast(`${array.length} ${itemName} copied.`);
   }
-  catch(err) {
-    showAlertDialog('Copy error: ' + err.message);
+  else {
+    showAlertDialog('Copy error');
   }
 }

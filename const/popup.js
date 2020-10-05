@@ -2,6 +2,8 @@
 
 const TOP_ASINS_AMOUNT = 10;
 
+const SCRAPE_REQUESTS_INTERVAL = 300; // msec
+
 const Msg = {
   ALL_BSRS_ALREADY_OBTAINED: 'All BSRs already obtained.',
   CANCELLED_BY_USER: 'Cancelled by user.',

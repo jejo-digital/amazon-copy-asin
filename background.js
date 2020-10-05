@@ -39,12 +39,12 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     }
     break;
 
-    case 'content_script_options':
+    case 'options':
       const {options} = msg.payload;
       // send options to Amazon tabs
       for (const tabId of amazonTabs.keys()) {
         chrome.tabs.sendMessage(tabId, {
-          id: 'content_script_options',
+          id: 'options',
           payload: {
             options,
           },
@@ -140,7 +140,7 @@ chrome.contextMenus.create({
   contexts: ['browser_action'],
   onclick: function(info, tab) {
     // get marketplace from current tab URL and pass it to new tab in URL
-    let newTabURL = 'popup.html';
+    let newTabURL = 'popup/popup.html';
     const activeTabOrigin = new URL(tab.url).origin;
     l(activeTabOrigin);
     if (activeTabOrigin.startsWith(AMAZON_URL_PREFIX)) {
@@ -265,11 +265,12 @@ function updateAmazonTabsAndPopupsWithAsins(marketplace) {
 function updateAmazonTabsWithAsinsThatHaveNotes() {
   l('updateAmazonTabsWithAsinsThatHaveNotes()');
 
+  const asinsThatHaveNotes = getAsinsThatHaveNotes();
   for (const tabId of amazonTabs.keys()) {
     chrome.tabs.sendMessage(tabId, {
       id: 'asins_that_have_notes',
       payload: {
-        asins: getAsinsThatHaveNotes(),
+        asins: asinsThatHaveNotes,
       },
     });
   }
