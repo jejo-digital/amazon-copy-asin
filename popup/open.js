@@ -1,11 +1,11 @@
 'use strict';
 
-const openTopButton = document.querySelector('#openTop');
+const openTopButton = document.querySelector('#openTopParent');
 
 openTopButton.value += TOP_ASINS_AMOUNT;
 
 
-// open selected
+// open selected ASINs
 document.querySelector('#openSelected').addEventListener('click', function() {
   const selection = document.getSelection();
   if (selection.toString().trim() === '') {
@@ -53,15 +53,11 @@ document.querySelector('#openSelected').addEventListener('click', function() {
 
 
 
-// open top
+// open top ASINs
 openTopButton.addEventListener('click', async function() {
   try {
     const result = await obtainAndSaveBsrs();
     l('resolve', result);
-
-    detectTopAsins();
-    isNeedToClearTopAsins = false;
-    createAsinTabs(getParentTopAsins());
   }
   catch(err) {
     l('reject', err);
@@ -75,6 +71,10 @@ openTopButton.addEventListener('click', async function() {
       return;
     }
   }
+
+  detectTopAsins();
+  isNeedToClearTopAsins = false;
+  createAsinTabs(getTopParentAsins());
 });
 
 

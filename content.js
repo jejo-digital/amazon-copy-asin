@@ -86,7 +86,7 @@ const myAsinsPromise = new Promise(function(resolve) {
   });
 });
 const storagePromise = new Promise(function(resolve) {
-  chrome.storage.sync.get({
+  chrome.storage.local.get({
     options: DEFAULT_OPTIONS,
     categoryDescriptions: {},
   }, function(storage) {

@@ -72,7 +72,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
         notes[asin] = newNotes;
       }
 
-      chrome.storage.sync.set({notes}, updateAmazonTabsWithAsinsThatHaveNotes);
+      chrome.storage.local.set({notes}, updateAmazonTabsWithAsinsThatHaveNotes);
     }
     break;
 
@@ -90,7 +90,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
 
 
 // load ASINs and notes
-chrome.storage.sync.get({
+chrome.storage.local.get({
   asins: {},
   notes: {},
   myAsins: [],
@@ -106,7 +106,7 @@ chrome.storage.sync.get({
 
 
 function saveAsins(callback) {
-  chrome.storage.sync.set({asins}, () => callback());
+  chrome.storage.local.set({asins}, () => callback());
 }
 
 
@@ -200,14 +200,14 @@ chrome.runtime.onConnect.addListener(function(port) {
 
       case 'set_my_asins':
         myAsins = msg.payload.asins;
-        chrome.storage.sync.set({myAsins}, () => sendDataToAmazonTabsAndPopups('my_asins', {
+        chrome.storage.local.set({myAsins}, () => sendDataToAmazonTabsAndPopups('my_asins', {
           asins: myAsins,
         }));
       break;
 
       case 'set_category_descriptions': {
         const categoryDescriptions = msg.payload.categoryDescriptions;
-        chrome.storage.sync.set({categoryDescriptions}, () => sendDataToAmazonTabsAndPopups('category_descriptions', {
+        chrome.storage.local.set({categoryDescriptions}, () => sendDataToAmazonTabsAndPopups('category_descriptions', {
           categoryDescriptions,
         }));
       }
@@ -335,7 +335,7 @@ Object.defineProperty(window, 's', {
     l('amazonTabs', amazonTabs);
     l('popupTabs', popupTabs);
 
-    chrome.storage.sync.get(function(items) {
+    chrome.storage.local.get(function(items) {
       l('storage.get()', items);
       console.groupEnd();
     });

@@ -23,10 +23,6 @@ copyTopParentButton.addEventListener('click', async function() {
   try {
     const result = await obtainAndSaveBsrs();
     l('resolve', result);
-
-    detectTopAsins();
-    isNeedToClearTopAsins = false;
-    copyArrayToClipboard(getParentTopAsins(), 'parent ASINs', EOL);
   }
   catch(err) {
     l('reject', err);
@@ -40,6 +36,10 @@ copyTopParentButton.addEventListener('click', async function() {
       return;
     }
   }
+
+  detectTopAsins();
+  isNeedToClearTopAsins = false;
+  copyArrayToClipboard(getTopParentAsins(), 'parent ASINs', EOL);
 });
 
 

@@ -150,7 +150,7 @@ categoriesDialogTableBody.innerHTML = CATEGORY_NAMES.map(category => `
 `).join('');
 
 // get and show category descriptions in table on main page
-chrome.storage.sync.get({
+chrome.storage.local.get({
   categoryDescriptions: {},
 }, function(storage) {
   l('storage.get()', storage);

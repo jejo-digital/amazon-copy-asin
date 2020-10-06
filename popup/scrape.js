@@ -97,8 +97,7 @@ function obtainBsrs() { // and parent asins
       return;
     }
 
-    // process all ASINs
-    const asinsToProcess = categoryAsins;//.filter(asin => asins[asin].bsr === undefined);
+    const asinsToProcess = categoryAsins.filter(asin => asins[asin].bsr === undefined);
     l(asinsToProcess);
 
     if (asinsToProcess.length === 0) {
@@ -339,7 +338,7 @@ function detectTopAsins() {
 
 
 
-function getParentTopAsins() {
+function getTopParentAsins() {
   const result = [];
   for (const asin in topAsins) {
     const parentAsin = topAsins[asin];

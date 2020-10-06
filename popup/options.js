@@ -3,7 +3,7 @@
 let options;
 
 
-chrome.storage.sync.get({
+chrome.storage.local.get({
   options: DEFAULT_OPTIONS,
 }, function(storage) {
   l('storage.get()', storage);
@@ -62,7 +62,7 @@ document.querySelector('form').addEventListener('input', function({target: check
   l(options);
 
   // save options
-  chrome.storage.sync.set({
+  chrome.storage.local.set({
     options,
   }, function() {
     // send options to BG page and other popups(BG page will send it to content scripts)
