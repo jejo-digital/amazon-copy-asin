@@ -1,6 +1,6 @@
 'use strict';
 
-const TOP_ASINS_AMOUNT = 25;
+const TOP_ASINS_AMOUNT = 10;
 
 const SCRAPE_REQUESTS_INTERVAL = 300; // msec
 

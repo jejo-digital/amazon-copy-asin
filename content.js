@@ -208,7 +208,7 @@ toolbarTemplate.innerHTML = `
   </span>
 `;
 
-const copyImageURL = chrome.runtime.getURL('img/copy.svg');
+const copyImageURL = chrome.runtime.getURL('img/copy.png');
 const successImageURL = chrome.runtime.getURL('img/success.svg');
 const menuImageURL = chrome.runtime.getURL('img/menu.svg');
 const menuWithNotesImageURL = chrome.runtime.getURL('img/notes.svg');

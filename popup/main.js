@@ -10,7 +10,7 @@ let asins = {};
 
 // asins for selected marketplace and category
 let categoryAsins;
-let topAsins = {};
+const topAsins = new Map();
 
 let myAsins;
 let categoryDescriptions;
@@ -222,7 +222,10 @@ chrome.runtime.onMessage.addListener(function(msg) {
         return;
       }
       l('store top ASINs');
-      topAsins = newTopAsins;
+      topAsins.clear();
+      for (const [key, value] of newTopAsins) {
+        topAsins.set(key, value);
+      }
       isNeedToClearTopAsins = false;
     break;
 
@@ -311,10 +314,10 @@ function showCategoryAsins() {
     }
 
     let inTopClass;
-    if (topAsins[asin] === undefined) {
+    if (topAsins.get(asin) === undefined) {
       inTopClass = '';
     }
-    else if (topAsins[asin] === null) {
+    else if (topAsins.get(asin) === null) {
       inTopClass = 'bg-warning';
     }
     else {

@@ -323,13 +323,15 @@ function detectTopAsins() {
 
     if (uniqueParentAsins.has(resultAsin)) {
       // skip not unique result ASIN
-      topAsins[asin] = null;
+      topAsins.set(asin, null);
+      l('skip');
       continue;
     }
 
     // store result ASIN
     uniqueParentAsins.add(resultAsin);
-    topAsins[asin] = resultAsin;
+    topAsins.set(asin, resultAsin);
+    l('store');
   }
 
   updateOtherPopupsWithTopAsins();
@@ -340,8 +342,7 @@ function detectTopAsins() {
 
 function getTopParentAsins() {
   const result = [];
-  for (const asin in topAsins) {
-    const parentAsin = topAsins[asin];
+  for (const parentAsin of topAsins.values()) {
     if (parentAsin !== null) {
       result.push(parentAsin);
     }
@@ -384,7 +385,7 @@ function deleteScrapedDataFromCategoryAsins() {
 
 
 function clearTopAsins() {
-  topAsins = {};
+  topAsins.clear();
 }
 
 
@@ -394,7 +395,7 @@ function updateOtherPopupsWithTopAsins() {
   chrome.runtime.sendMessage({
     id: 'top_asins',
     payload: {
-      asins: topAsins,
+      asins: [...topAsins],
       marketplace: selectedMarketplace,
       category: selectedCategory,
     },
